@@ -217,15 +217,23 @@ function VIPMembersDashboardPage() {
   const [selectedSubAreaId, setSelectedSubAreaId] =
     useState<FilterValue>("all");
   const [selectedBranchId, setSelectedBranchId] = useState<FilterValue>("all");
-  const [startDate, setStartDate] = useState(
-    () => new Date().toISOString().split("T")[0],
-  );
-  const [endDate, setEndDate] = useState(
-    () => new Date().toISOString().split("T")[0],
-  );
-  const [trendView, setTrendView] = useState<TrendView>("day");
 
-  const initialDateAppliedRef = useRef(false);
+  // Default to 2-week range: from 2 weeks ago to today
+  const getDefaultDateRange = () => {
+    const today = new Date();
+    const twoWeeksAgo = new Date(today);
+    twoWeeksAgo.setDate(today.getDate() - 14);
+
+    return {
+      start: twoWeeksAgo.toISOString().split("T")[0],
+      end: today.toISOString().split("T")[0],
+    };
+  };
+
+  const defaultDates = getDefaultDateRange();
+  const [startDate, setStartDate] = useState(() => defaultDates.start);
+  const [endDate, setEndDate] = useState(() => defaultDates.end);
+  const [trendView, setTrendView] = useState<TrendView>("day");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -274,15 +282,7 @@ function VIPMembersDashboardPage() {
     [rawMembers, areaMap, subAreaMap, branchMap],
   );
 
-  useEffect(() => {
-    if (initialDateAppliedRef.current || allMembers.length === 0) {
-      return;
-    }
-    const earliest = getEarliestCreatedAt(allMembers);
-    setStartDate(earliest);
-    setEndDate((prev) => (prev < earliest ? earliest : prev));
-    initialDateAppliedRef.current = true;
-  }, [allMembers]);
+  // Remove the initial date override logic to keep our 2-week default
 
   const selectedArea = useMemo(
     () =>
@@ -351,15 +351,17 @@ function VIPMembersDashboardPage() {
     }
 
     return allMembers.filter(({ joinedDate, removedDate }) => {
-      if (!joinedDate) {
-        return false;
-      }
+      // Show all members (including those who joined before the date range)
+      // Only filter out removed members
       if (removedDate) {
         return false;
       }
-      return joinedDate >= normalizedStart && joinedDate <= normalizedEnd;
+
+      // Don't filter by joined date to show all members
+      // The date range should be used for trends/charts, not for filtering the member list
+      return true;
     });
-  }, [allMembers, startDate, endDate]);
+  }, [allMembers]); // Remove startDate and endDate dependencies
 
   const { areaCounts, subAreaCounts, branchCounts } = useMemo(() => {
     const areaMap = new Map<number, number>();
@@ -502,18 +504,11 @@ function VIPMembersDashboardPage() {
       return [];
     }
 
-    // Apply the same filtering logic as memberDetails
-    const normalizedEnd = endDate < startDate ? startDate : endDate;
-    const filteredForTimeline = allMembers.filter((entry) => {
-      const { joinedDate, areaId, subAreaId, branchId } = entry;
-      if (
-        !joinedDate ||
-        joinedDate < startDate ||
-        joinedDate > normalizedEnd
-      ) {
-        return false;
-      }
+    // Use all members instead of filtering by date range for timeline
+    const allMembersForTimeline = allMembers.filter((entry) => {
+      const { areaId, subAreaId, branchId } = entry;
 
+      // Apply area/subarea/branch filters but not date filters
       if (selectedAreaId !== "all" && areaId !== selectedAreaId) {
         return false;
       }
@@ -539,7 +534,7 @@ function VIPMembersDashboardPage() {
     });
 
     const baselineIds = new Set<number>();
-    filteredForTimeline.forEach(({ member, joinedDate, removedDate }) => {
+    allMembersForTimeline.forEach(({ member, joinedDate, removedDate }) => {
       if (!joinedDate) {
         return;
       }
@@ -553,7 +548,7 @@ function VIPMembersDashboardPage() {
     const additionsByDay = new Map<string, number[]>();
     const removalsByDay = new Map<string, number[]>();
 
-    filteredForTimeline.forEach(({ member, joinedDate, removedDate }) => {
+    allMembersForTimeline.forEach(({ member, joinedDate, removedDate }) => {
       if (joinedDate && joinedDate >= startDate && joinedDate <= endDate) {
         if (!additionsByDay.has(joinedDate)) {
           additionsByDay.set(joinedDate, []);
@@ -650,18 +645,16 @@ function VIPMembersDashboardPage() {
   }, [allMembers, startDate, endDate, trendView, selectedAreaId, selectedArea, selectedAreaSubAreas, selectedSubAreaId, normalizedBranchId]);
 
   const memberDetails = useMemo(() => {
-    const normalizedEnd = endDate < startDate ? startDate : endDate;
     return allMembers
       .filter((entry) => {
-        const { joinedDate, areaId, subAreaId, branchId } = entry;
-        if (
-          !joinedDate ||
-          joinedDate < startDate ||
-          joinedDate > normalizedEnd
-        ) {
+        const { joinedDate, areaId, subAreaId, branchId, removedDate } = entry;
+
+        // Only filter out removed members
+        if (removedDate) {
           return false;
         }
 
+        // Apply area/subarea/branch filters but not date filters
         if (selectedAreaId !== "all" && areaId !== selectedAreaId) {
           return false;
         }
@@ -688,17 +681,9 @@ function VIPMembersDashboardPage() {
       .sort((a, b) => {
         const aDate = a.joinedDate ?? "";
         const bDate = b.joinedDate ?? "";
-        return aDate > bDate ? -1 : 1;
+        return bDate.localeCompare(aDate); // Sort by newest first
       });
-  }, [
-    allMembers,
-    startDate,
-    endDate,
-    selectedAreaId,
-    selectedArea,
-    selectedSubAreaId,
-    normalizedBranchId,
-  ]);
+  }, [allMembers, selectedAreaId, selectedArea, selectedAreaSubAreas, selectedSubAreaId, normalizedBranchId]);
 
   const activeMembers = useMemo(
     () => memberDetails.filter(({ removedDate }) => !removedDate),
@@ -746,10 +731,9 @@ function VIPMembersDashboardPage() {
     if (selectedAreaId !== "all") filters.areaId = selectedAreaId;
     if (selectedSubAreaId !== "all") filters.subAreaId = selectedSubAreaId;
     if (normalizedBranchId !== null) filters.branchId = normalizedBranchId;
-    filters.startDate = startDate;
-    filters.endDate = endDate;
+    // Remove date filters for individual VIP records - show all members
     return filters;
-  }, [selectedAreaId, selectedSubAreaId, normalizedBranchId, startDate, endDate]);
+  }, [selectedAreaId, selectedSubAreaId, normalizedBranchId]); // Remove date dependencies
 
   // Load active members with pagination
   const loadActiveMembers = useCallback(async (page: number, reset: boolean = false) => {
@@ -1112,11 +1096,7 @@ function VIPMembersDashboardPage() {
             </div>
           </div>
           <div className="mt-6 h-72 w-full">
-            {chartLoading ? (
-              <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                Loading chart data...
-              </div>
-            ) : timelineData.length === 0 ? (
+            {timelineData.length === 0 ? (
               <div className="flex h-full items-center justify-center text-sm text-slate-400">
                 No members in this period.
               </div>

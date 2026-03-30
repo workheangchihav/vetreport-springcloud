@@ -119,10 +119,7 @@ const buildAuthHeaders = () => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  const userId = getStoredUserId();
-  if (userId) {
-    headers["X-User-Id"] = String(userId);
-  }
+  // Remove manual X-User-Id header - let gateway handle it
   return headers;
 };
 

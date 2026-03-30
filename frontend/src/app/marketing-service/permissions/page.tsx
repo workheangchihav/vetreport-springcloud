@@ -13,6 +13,8 @@ import { User } from "@/services/userService";
 import { marketingUserService } from "@/services/marketing-service/marketingUserService";
 import { PermissionGuard } from "@/components/layout/PermissionGuard";
 import { useToast } from "@/components/ui/Toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { apiFetch } from "@/services/httpClient";
 import {
   Plus,
   Trash2,
@@ -26,47 +28,9 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import { apiFetch } from "@/services/httpClient";
-
-const getStoredUserId = (): number | null => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const userStr = window.localStorage.getItem("user");
-  if (!userStr) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(userStr);
-    return parsed?.id ?? null;
-  } catch {
-    return null;
-  }
-};
-
-const fetchAndCacheUserId = async (): Promise<number | null> => {
-  try {
-    const response = await apiFetch("/api/auth/me", { method: "GET" });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const user = await response.json();
-    if (user?.id && typeof window !== "undefined") {
-      window.localStorage.setItem("user", JSON.stringify(user));
-      return user.id;
-    }
-    return user?.id ?? null;
-  } catch (error) {
-    console.error("Failed to fetch current user info", error);
-    return null;
-  }
-};
 
 export default function PermissionsPage() {
+  const { user } = useAuth();
   const { showToast } = useToast();
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -99,22 +63,22 @@ export default function PermissionsPage() {
   useEffect(() => {
     fetchData();
     loadCurrentUserPermissions();
-  }, []);
+  }, [user?.id]);
 
   const loadCurrentUserPermissions = async () => {
     try {
       setPermissionScopeLoaded(false);
-      const freshUserId = await fetchAndCacheUserId();
-      const resolvedUserId = freshUserId ?? getStoredUserId();
-      if (!resolvedUserId) {
+
+      if (!user?.id) {
         setAllowedPermissionCodes(null);
         setPermissionScopeLoaded(false);
         return;
       }
-      setCurrentUserId(resolvedUserId);
+
+      setCurrentUserId(user.id);
 
       const response = await apiFetch(
-        `/api/marketing/permissions/user/${resolvedUserId}`,
+        `/api/marketing/permissions/user/${user.id}`,
       );
 
       if (!response.ok) {

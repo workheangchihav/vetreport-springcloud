@@ -9,7 +9,6 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   MENU_SECTIONS,
   type MenuSection,
@@ -213,19 +212,10 @@ export function AppShell({ children }: AppShellProps) {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-linear-to-br from-blue-50 via-orange-50 to-blue-100 text-slate-800 flex items-center justify-center relative overflow-hidden">
-        {/* Animated Background Orbs */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-400/30 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-600/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        </div>
-
-        <div className="flex flex-col items-center gap-4 relative z-10">
-          <div className="relative w-16 h-16">
-            <div className="absolute inset-0 rounded-full border-4 border-blue-200 animate-pulse"></div>
-            <div className="absolute inset-0 rounded-full border-4 border-t-orange-500 border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
-          </div>
-          <span className="text-sm text-slate-600 animate-pulse font-medium">
+      <main className="min-h-screen bg-linear-to-br from-blue-50 via-orange-50 to-blue-100 text-slate-800 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-full border-4 border-orange-500"></div>
+          <span className="text-sm text-slate-600 font-medium">
             Loading session…
           </span>
         </div>
@@ -239,18 +229,9 @@ export function AppShell({ children }: AppShellProps) {
     }
 
     return (
-      <AnimatePresence mode="wait">
-        <motion.main
-          key={pathname}
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -50 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="flex-1 flex flex-col overflow-hidden"
-        >
-          {children}
-        </motion.main>
-      </AnimatePresence>
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {children}
+      </main>
     );
   }
 
@@ -372,7 +353,7 @@ export function AppShell({ children }: AppShellProps) {
                       return (
                         <div
                           key={tab.path}
-                          className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-200 cursor-pointer ${isActive
+                          className={`flex items-center gap-2 rounded-xl px-3 py-2 cursor-pointer ${isActive
                             ? "bg-linear-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/50"
                             : "bg-slate-700/50 text-slate-300 hover:bg-slate-700 border border-slate-600/50"
                             }`}
@@ -405,7 +386,7 @@ export function AppShell({ children }: AppShellProps) {
                               });
                             }}
                             aria-label={`Close ${tab.label}`}
-                            className={`rounded-full p-1 transition-all duration-200 active:scale-90 cursor-pointer ${isActive
+                            className={`rounded-full p-1 cursor-pointer ${isActive
                               ? "hover:bg-white/20 text-white"
                               : "hover:bg-slate-600 text-slate-400"
                               }`}
@@ -423,25 +404,15 @@ export function AppShell({ children }: AppShellProps) {
             )}
           </div>
 
-          {/* Content Area - Glassmorphism with Page Transitions */}
-          <AnimatePresence mode="wait" custom={navigationDirection}>
-            <motion.div
-              key={pathname}
-              custom={navigationDirection}
-              initial={{ opacity: 0, x: navigationDirection === 'right' ? 50 : -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: navigationDirection === 'right' ? -50 : 50 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="w-full"
-            >
-              <section className="rounded-2xl bg-slate-900 backdrop-blur-xl border border-slate-700/50 p-6 shadow-2xl shadow-blue-900/10 transition-all duration-300 hover:shadow-blue-900/20">
-                <div className="relative z-10">
-                  {children}
-                </div>
-                <div className="absolute inset-0 rounded-2xl bg-linear-to-br from-orange-500/10 via-blue-500/10 to-purple-500/10 opacity-50 -z-10"></div>
-              </section>
-            </motion.div>
-          </AnimatePresence>
+          {/* Content Area - Simple without animations */}
+          <div className="w-full">
+            <section className="rounded-2xl bg-slate-900 backdrop-blur-xl border border-slate-700/50 p-6 shadow-2xl shadow-blue-900/10">
+              <div className="relative z-10">
+                {children}
+              </div>
+              <div className="absolute inset-0 rounded-2xl bg-linear-to-br from-orange-500/10 via-blue-500/10 to-purple-500/10 opacity-50 -z-10"></div>
+            </section>
+          </div>
 
           {/* Footer */}
           <Footer />
@@ -490,21 +461,16 @@ function Sidebar({
             alt="VET Report Logo"
             className="w-15 h-15 object-contain"
           />
-          <motion.div
-            className="text-xl font-bold text-white"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-          >
+          <div className="text-xl font-bold text-white">
             <div>
-              <h1 className="animate-text-gradient bg-gradient-to-r from-slate-400 via-orange-400 to-slate-400 bg-clip-text text-transparent bg-[length:200%_100%]">
+              <h1 className="bg-gradient-to-r from-slate-400 via-orange-400 to-slate-400 bg-clip-text text-transparent">
                 VET Report
               </h1>
               <span className="text-xs text-slate-400 block mt-1">
                 Reporting & Analytics
               </span>
             </div>
-          </motion.div>
+          </div>
         </div>
         {isMobile && onClose && (
           <button
