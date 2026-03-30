@@ -20,6 +20,7 @@ import {
   marketingUserAssignmentService,
   MarketingUserAssignment,
 } from "@/services/marketing-service/marketingUserAssignmentService";
+import { useQuery } from "@tanstack/react-query";
 
 type FilterValue = number | "all";
 type SubAreaSelection = number | "all";
@@ -55,11 +56,40 @@ export default function MarketingVipManageUserPage() {
   const { user, isAuthenticated, isLoading, hasServiceAccess } = useAuth();
   const canAccessMarketing = isAuthenticated && hasServiceAccess("marketing");
   const currentUserId = user?.id ?? null;
-  const [areas, setAreas] = useState<MarketingArea[]>([]);
-  const [subAreas, setSubAreas] = useState<MarketingSubArea[]>([]);
-  const [branches, setBranches] = useState<MarketingBranch[]>([]);
-  const [members, setMembers] = useState<VipMember[]>([]);
-  const [userAssignments, setUserAssignments] = useState<MarketingUserAssignment[]>([]);
+
+  // React Query hooks for data fetching
+  const { data: areas = [], isLoading: areasLoading, error: areasError } = useQuery({
+    queryKey: ["marketing-areas"],
+    queryFn: () => marketingHierarchyService.listAreas(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const { data: subAreas = [], isLoading: subAreasLoading, error: subAreasError } = useQuery({
+    queryKey: ["marketing-subareas"],
+    queryFn: () => marketingHierarchyService.listSubAreas(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const { data: branches = [], isLoading: branchesLoading, error: branchesError } = useQuery({
+    queryKey: ["marketing-branches"],
+    queryFn: () => marketingHierarchyService.listBranches(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const { data: members = [], isLoading: membersLoading, error: membersError } = useQuery({
+    queryKey: ["vip-members"],
+    queryFn: () => vipMemberService.listMembers(),
+    staleTime: 5 * 60 * 1000, // 5 minutes (more dynamic data)
+  });
+
+  const { data: userAssignments = [], isLoading: assignmentsLoading, error: assignmentsError } = useQuery({
+    queryKey: ["marketing-user-assignments", currentUserId],
+    queryFn: () => currentUserId ? marketingUserAssignmentService.getUserAssignments() : Promise.resolve([]),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: !!currentUserId,
+  });
+
+  const lookupLoading = areasLoading || subAreasLoading || branchesLoading;
 
   const [filters, setFilters] = useState<{
     areaId: FilterValue;
@@ -86,14 +116,15 @@ export default function MarketingVipManageUserPage() {
   const [form, setForm] = useState<MemberFormState>(defaultForm);
   const [editingMember, setEditingMember] = useState<VipMember | null>(null);
   const [showQuickPaste, setShowQuickPaste] = useState(false);
-
-  const [lookupLoading, setLookupLoading] = useState(true);
-  const [membersLoading, setMembersLoading] = useState(false);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
   const [pasteText, setPasteText] = useState("");
   const [parsedMembers, setParsedMembers] = useState<Array<{ name: string; phone: string }>>([]);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [paginatedMembersLoading, setPaginatedMembersLoading] = useState(false);
+  const [paginatedMembers, setPaginatedMembers] = useState<VipMember[]>([]);
+  const [totalMembersCount, setTotalMembersCount] = useState(0);
 
   const parsePasteText = (text: string) => {
     const lines = text.trim().split('\n');
@@ -173,99 +204,73 @@ export default function MarketingVipManageUserPage() {
     setFilters((prev) => ({ ...prev }));
   };
 
-  const loadLookups = async () => {
-    setLookupLoading(true);
-    try {
-      const [areaData, subAreaData, branchData] = await Promise.all([
-        marketingHierarchyService.listAreas(),
-        marketingHierarchyService.listSubAreas(),
-        marketingHierarchyService.listBranches(),
-      ]);
-      setAreas(areaData);
-      setSubAreas(subAreaData);
-      setBranches(branchData);
-    } catch (error) {
-      showToast(
-        error instanceof Error
-          ? error.message
-          : "Failed to load hierarchy data",
-        "error",
-      );
-    } finally {
-      setLookupLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadLookups();
-  }, []);
 
   useEffect(() => {
     if (!canAccessMarketing || isLoading || !currentUserId) {
       return;
     }
 
-    const loadUserAssignments = async () => {
-      try {
-        const assignments = await marketingUserAssignmentService.getUserAssignments();
-        setUserAssignments(assignments);
+    // Apply user assignments to filters if no manual filters are set
+    if (userAssignments.length > 0 && filters.areaId === "all" && filters.subAreaId === "all" && filters.branchId === "all") {
+      // Extract unique area, subarea, and branch IDs from assignments
+      const areaIds = [...new Set(userAssignments.filter(a => a.areaId).map(a => a.areaId!))];
+      const subAreaIds = [...new Set(userAssignments.filter(a => a.subAreaId).map(a => a.subAreaId!))];
+      const branchIds = [...new Set(userAssignments.filter(a => a.branchId).map(a => a.branchId!))];
 
-        // Apply user assignments to filters if no manual filters are set
-        if (assignments.length > 0 && filters.areaId === "all" && filters.subAreaId === "all" && filters.branchId === "all") {
-          // Extract unique area, subarea, and branch IDs from assignments
-          const areaIds = [...new Set(assignments.filter(a => a.areaId).map(a => a.areaId!))];
-          const subAreaIds = [...new Set(assignments.filter(a => a.subAreaId).map(a => a.subAreaId!))];
-          const branchIds = [...new Set(assignments.filter(a => a.branchId).map(a => a.branchId!))];
-
-          // Set filters based on assignments (prioritize more specific assignments)
-          if (branchIds.length > 0) {
-            // If user has branch assignments, use them
-            if (branchIds.length === 1) {
-              setFilters(prev => ({ ...prev, branchId: branchIds[0] }));
-            }
-            // Set subarea and area based on first branch assignment
-            const firstAssignment = assignments.find(a => a.branchId);
-            if (firstAssignment?.subAreaId) {
-              setFilters(prev => ({ ...prev, subAreaId: firstAssignment.subAreaId! }));
-            }
-            if (firstAssignment?.areaId) {
-              setFilters(prev => ({ ...prev, areaId: firstAssignment.areaId! }));
-            }
-          } else if (subAreaIds.length > 0) {
-            // If user has subarea assignments but no branch assignments
-            if (subAreaIds.length === 1) {
-              setFilters(prev => ({ ...prev, subAreaId: subAreaIds[0] }));
-            }
-            // Set area based on first subarea assignment
-            const firstAssignment = assignments.find(a => a.subAreaId);
-            if (firstAssignment?.areaId) {
-              setFilters(prev => ({ ...prev, areaId: firstAssignment.areaId! }));
-            }
-          } else if (areaIds.length > 0) {
-            // If user only has area assignments
-            if (areaIds.length === 1) {
-              setFilters(prev => ({ ...prev, areaId: areaIds[0] }));
-            }
-          }
+      // Set filters based on assignments (prioritize more specific assignments)
+      if (branchIds.length > 0) {
+        // If user has branch assignments, use them
+        if (branchIds.length === 1) {
+          setFilters(prev => ({ ...prev, branchId: branchIds[0] }));
         }
-      } catch (error) {
-        console.error("Failed to load user assignments:", error);
+        // Set subarea and area based on first branch assignment
+        const firstAssignment = userAssignments.find(a => a.branchId);
+        if (firstAssignment?.subAreaId) {
+          setFilters(prev => ({ ...prev, subAreaId: firstAssignment.subAreaId! }));
+        }
+        if (firstAssignment?.areaId) {
+          setFilters(prev => ({ ...prev, areaId: firstAssignment.areaId! }));
+        }
+      } else if (subAreaIds.length > 0) {
+        // If user has subarea assignments but no branch assignments
+        if (subAreaIds.length === 1) {
+          setFilters(prev => ({ ...prev, subAreaId: subAreaIds[0] }));
+        }
+        // Set area based on first subarea assignment
+        const firstAssignment = userAssignments.find(a => a.subAreaId);
+        if (firstAssignment?.areaId) {
+          setFilters(prev => ({ ...prev, areaId: firstAssignment.areaId! }));
+        }
+      } else if (areaIds.length > 0) {
+        // If user only has area assignments
+        if (areaIds.length === 1) {
+          setFilters(prev => ({ ...prev, areaId: areaIds[0] }));
+        }
       }
-    };
+    }
+  }, [canAccessMarketing, isLoading, currentUserId, userAssignments, filters.areaId, filters.subAreaId, filters.branchId]);
 
-    void loadUserAssignments();
-  }, [canAccessMarketing, isLoading, currentUserId]);
-
+  // Load paginated members based on filters
   useEffect(() => {
-    let active = true;
-    const loadMembers = async () => {
-      setMembersLoading(true);
+    if (!canAccessMarketing || isLoading || !currentUserId) {
+      return;
+    }
+
+    const loadPaginatedMembers = async () => {
+      setPaginatedMembersLoading(true);
       try {
         const params: {
           areaId?: number;
           subAreaId?: number;
           branchId?: number;
-        } = {};
+          page?: number;
+          size?: number;
+          memberQuery?: string;
+        } = {
+          page: currentPage,
+          size: pageSize,
+        };
+
         if (filters.areaId !== "all") {
           params.areaId = filters.areaId;
         }
@@ -275,32 +280,27 @@ export default function MarketingVipManageUserPage() {
         if (filters.branchId !== "all") {
           params.branchId = filters.branchId;
         }
+        if (searchQuery.trim()) {
+          params.memberQuery = searchQuery.trim();
+        }
+
         const data = await vipMemberService.listMembers(params);
-        if (active) {
-          setMembers(data);
-          setCurrentPage(1); // Reset to first page when filters change
-        }
+        setPaginatedMembers(data);
+        // Note: You might need to add totalCount to the API response
+        setTotalMembersCount(data.length);
+        setCurrentPage(1); // Reset to first page when filters change
       } catch (error) {
-        if (active) {
-          showToast(
-            error instanceof Error
-              ? error.message
-              : "Failed to load VIP members",
-            "error",
-          );
-        }
+        showToast(
+          error instanceof Error ? error.message : "Failed to load members",
+          "error",
+        );
       } finally {
-        if (active) {
-          setMembersLoading(false);
-        }
+        setPaginatedMembersLoading(false);
       }
     };
 
-    void loadMembers();
-    return () => {
-      active = false;
-    };
-  }, [filters]);
+    void loadPaginatedMembers();
+  }, [canAccessMarketing, isLoading, currentUserId, filters.areaId, filters.subAreaId, filters.branchId, searchQuery, currentPage, pageSize]);
 
   const filteredSubAreasForForm = useMemo(() => {
     // If no area selected, show all sub areas
@@ -365,7 +365,7 @@ export default function MarketingVipManageUserPage() {
   const totalPages = Math.ceil(filteredMembers.length / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+  const paginatedMembersData = filteredMembers.slice(startIndex, endIndex);
 
   // Handle page size change
   const handlePageSizeChange = (newSize: number) => {
@@ -1014,7 +1014,7 @@ export default function MarketingVipManageUserPage() {
                 </h2>
               </div>
               <span className="text-xs text-white/60">
-                {membersLoading ? "Refreshing…" : `${members.length} records`}
+                {paginatedMembersLoading ? "Refreshing…" : `${members.length} records`}
               </span>
             </div>
 
@@ -1149,7 +1149,7 @@ export default function MarketingVipManageUserPage() {
                         className="px-4 py-6 text-center text-slate-400"
                         colSpan={5}
                       >
-                        {membersLoading
+                        {paginatedMembersLoading
                           ? "Loading members…"
                           : searchQuery.trim()
                             ? "No members match your search."
@@ -1157,7 +1157,7 @@ export default function MarketingVipManageUserPage() {
                       </td>
                     </tr>
                   ) : (
-                    paginatedMembers.map((member) => (
+                    paginatedMembersData.map((member) => (
                       <tr
                         key={member.id}
                         className="border-b border-white/5 last:border-transparent"

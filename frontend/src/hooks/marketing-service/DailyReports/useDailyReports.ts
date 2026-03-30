@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DailyReport, CreateReportRequest } from "@/types/types";
 import { apiFetch } from "@/services/httpClient";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export const useDailyReports = () => {
+    const queryClient = useQueryClient();
     const [reports, setReports] = useState<DailyReport[]>([]);
-    const [loading, setLoading] = useState(false);
 
-    const loadReports = async () => {
-        setLoading(true);
-        try {
+    // Query for loading reports
+    const { data: reportsData = [], isLoading, error, refetch } = useQuery({
+        queryKey: ["daily-reports"],
+        queryFn: async () => {
             const response = await apiFetch("/api/marketing/daily-reports", {
                 method: "GET",
                 headers: {
@@ -20,18 +22,19 @@ export const useDailyReports = () => {
                 throw new Error("Failed to load reports");
             }
 
-            const data = await response.json();
-            setReports(data);
-        } catch (error) {
-            throw error;
-        } finally {
-            setLoading(false);
-        }
-    };
+            return await response.json();
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
 
-    const createReport = async (payload: CreateReportRequest) => {
-        setLoading(true);
-        try {
+    // Update local state when query data changes
+    useEffect(() => {
+        setReports(reportsData);
+    }, [reportsData]);
+
+    // Mutation for creating reports
+    const createReportMutation = useMutation({
+        mutationFn: async (payload: CreateReportRequest) => {
             const response = await apiFetch("/api/marketing/daily-reports", {
                 method: "POST",
                 headers: {
@@ -45,16 +48,16 @@ export const useDailyReports = () => {
             }
 
             return await response.json();
-        } catch (error) {
-            throw error;
-        } finally {
-            setLoading(false);
-        }
-    };
+        },
+        onSuccess: () => {
+            // Invalidate and refetch reports
+            queryClient.invalidateQueries({ queryKey: ["daily-reports"] });
+        },
+    });
 
-    const updateReport = async (id: string, payload: CreateReportRequest) => {
-        setLoading(true);
-        try {
+    // Mutation for updating reports
+    const updateReportMutation = useMutation({
+        mutationFn: async ({ id, payload }: { id: string; payload: CreateReportRequest }) => {
             const response = await apiFetch(`/api/marketing/daily-reports/${id}`, {
                 method: "PUT",
                 headers: {
@@ -68,16 +71,16 @@ export const useDailyReports = () => {
             }
 
             return await response.json();
-        } catch (error) {
-            throw error;
-        } finally {
-            setLoading(false);
-        }
-    };
+        },
+        onSuccess: () => {
+            // Invalidate and refetch reports
+            queryClient.invalidateQueries({ queryKey: ["daily-reports"] });
+        },
+    });
 
-    const deleteReport = async (id: string) => {
-        setLoading(true);
-        try {
+    // Mutation for deleting reports
+    const deleteReportMutation = useMutation({
+        mutationFn: async (id: string) => {
             const response = await apiFetch(`/api/marketing/daily-reports/${id}`, {
                 method: "DELETE",
                 headers: {
@@ -88,19 +91,35 @@ export const useDailyReports = () => {
             if (!response.ok) {
                 throw new Error("Failed to delete report");
             }
-        } catch (error) {
-            throw error;
-        } finally {
-            setLoading(false);
-        }
+        },
+        onSuccess: () => {
+            // Invalidate and refetch reports
+            queryClient.invalidateQueries({ queryKey: ["daily-reports"] });
+        },
+    });
+
+    const loadReports = () => {
+        refetch();
+    };
+
+    const createReport = async (payload: CreateReportRequest) => {
+        return await createReportMutation.mutateAsync(payload);
+    };
+
+    const updateReport = async (id: string, payload: CreateReportRequest) => {
+        return await updateReportMutation.mutateAsync({ id, payload });
+    };
+
+    const deleteReport = async (id: string) => {
+        return await deleteReportMutation.mutateAsync(id);
     };
 
     return {
         reports,
-        loading,
+        loading: isLoading,
         loadReports,
         createReport,
         updateReport,
-        deleteReport
+        deleteReport,
     };
 };

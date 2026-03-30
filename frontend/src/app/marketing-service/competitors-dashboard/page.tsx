@@ -21,6 +21,7 @@ import {
   competitorService,
   type MarketingCompetitor,
 } from "@/services/marketing-service/competitorService";
+import { useQuery } from "@tanstack/react-query";
 
 const AREA_LEVEL_FILTER_VALUE = "__AREA_LEVEL__";
 
@@ -74,41 +75,24 @@ const formatPrice = (value: number) =>
   }).format(value);
 
 export default function CompetitorsDashboardPage() {
-  const [assignments, setAssignments] = useState<MarketingCompetitorAssignment[]>([]);
-  const [competitors, setCompetitors] = useState<MarketingCompetitor[]>([]);
   const [selectedArea, setSelectedArea] = useState<number | "all">("all");
   const [selectedSubArea, setSelectedSubArea] = useState<string | "all">("all");
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [assignmentData, competitorData] = await Promise.all([
-          competitorAssignmentService.listAssignments(),
-          competitorService.listCompetitors(),
-        ]);
-        if (!active) return;
-        setAssignments(assignmentData);
-        setCompetitors(competitorData);
-      } catch (err) {
-        if (!active) return;
-        setError(err instanceof Error ? err.message : "Failed to load dashboard data");
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
+  // React Query hooks for data fetching
+  const { data: assignments = [], isLoading: assignmentsLoading, error: assignmentsError } = useQuery({
+    queryKey: ["competitor-assignments"],
+    queryFn: () => competitorAssignmentService.listAssignments(),
+    staleTime: 15 * 60 * 1000, // 15 minutes
+  });
 
-    load();
-    return () => {
-      active = false;
-    };
-  }, []);
+  const { data: competitors = [], isLoading: competitorsLoading, error: competitorsError } = useQuery({
+    queryKey: ["marketing-competitors"],
+    queryFn: () => competitorService.listCompetitors(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const loading = assignmentsLoading || competitorsLoading;
+  const error = assignmentsError?.message || competitorsError?.message || null;
 
   const competitorLookup = useMemo(() => {
     const map: Record<number, MarketingCompetitor> = {};

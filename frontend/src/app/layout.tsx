@@ -7,6 +7,7 @@ import { PreferencesProvider } from "@/contexts/PreferencesContext";
 import { AppShellWrapper } from "@/components/layout/AppShellWrapper";
 import { ToastProvider } from "@/components/ui/Toast";
 import PWAManager from "@/components/PWAManager";
+import { QueryProviders } from "@/components/providers/QueryProviders";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -74,14 +75,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-slate-950 text-slate-100 antialiased`}
       >
-        <PreferencesProvider>
-          <AuthProvider>
-            <ToastProvider>
-              {isProduction && <PWAManager />}
-              <AppShellWrapper>{children}</AppShellWrapper>
-            </ToastProvider>
-          </AuthProvider>
-        </PreferencesProvider>
+        <QueryProviders>
+          <PreferencesProvider>
+            <AuthProvider>
+              <ToastProvider>
+                {isProduction && <PWAManager />}
+                <AppShellWrapper>{children}</AppShellWrapper>
+              </ToastProvider>
+            </AuthProvider>
+          </PreferencesProvider>
+        </QueryProviders>
       </body>
     </html>
   );

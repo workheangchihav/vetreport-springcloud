@@ -25,6 +25,7 @@ import {
   vipMemberService,
   VipMember,
 } from "@/services/marketing-service/vipMemberService";
+import { useQuery } from "@tanstack/react-query";
 
 type FilterValue = number | "all";
 
@@ -189,33 +190,8 @@ const getWeekNumber = (date: Date) => {
 };
 
 function VIPMembersDashboardPage() {
-  const [areas, setAreas] = useState<MarketingArea[]>([]);
-  const [subAreas, setSubAreas] = useState<MarketingSubArea[]>([]);
-  const [branches, setBranches] = useState<MarketingBranch[]>([]);
-  const [rawMembers, setRawMembers] = useState<VipMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [chartLoading, setChartLoading] = useState(true);
-
-  // Infinite scroll states for active members
-  const [activeMembersPage, setActiveMembersPage] = useState(0);
-  const [activeMembersData, setActiveMembersData] = useState<EnrichedMember[]>([]);
-  const [activeMembersLoading, setActiveMembersLoading] = useState(false);
-  const [activeMembersHasMore, setActiveMembersHasMore] = useState(true);
-
-  // Infinite scroll states for removed members
-  const [removedMembersPage, setRemovedMembersPage] = useState(0);
-  const [removedMembersData, setRemovedMembersData] = useState<EnrichedMember[]>([]);
-  const [removedMembersLoading, setRemovedMembersLoading] = useState(false);
-  const [removedMembersHasMore, setRemovedMembersHasMore] = useState(true);
-
-  // Refs for scroll detection
-  const activeTableRef = useRef<HTMLDivElement>(null);
-  const removedTableRef = useRef<HTMLDivElement>(null);
-
   const [selectedAreaId, setSelectedAreaId] = useState<FilterValue>("all");
-  const [selectedSubAreaId, setSelectedSubAreaId] =
-    useState<FilterValue>("all");
+  const [selectedSubAreaId, setSelectedSubAreaId] = useState<FilterValue>("all");
   const [selectedBranchId, setSelectedBranchId] = useState<FilterValue>("all");
 
   // Default to 2-week range: from 2 weeks ago to today
@@ -235,34 +211,50 @@ function VIPMembersDashboardPage() {
   const [endDate, setEndDate] = useState(() => defaultDates.end);
   const [trendView, setTrendView] = useState<TrendView>("day");
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [areaData, subAreaData, branchData, memberData] = await Promise.all(
-        [
-          marketingHierarchyService.listAreas(),
-          marketingHierarchyService.listSubAreas(),
-          marketingHierarchyService.listBranches(),
-          vipMemberService.listMembers(),
-        ],
-      );
-      setAreas(areaData);
-      setSubAreas(subAreaData);
-      setBranches(branchData);
-      setRawMembers(memberData);
-      setChartLoading(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load VIP data");
-      setChartLoading(false);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Infinite scroll states for active members
+  const [activeMembersPage, setActiveMembersPage] = useState(0);
+  const [activeMembersData, setActiveMembersData] = useState<EnrichedMember[]>([]);
+  const [activeMembersLoading, setActiveMembersLoading] = useState(false);
+  const [activeMembersHasMore, setActiveMembersHasMore] = useState(true);
 
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  // Infinite scroll states for removed members
+  const [removedMembersPage, setRemovedMembersPage] = useState(0);
+  const [removedMembersData, setRemovedMembersData] = useState<EnrichedMember[]>([]);
+  const [removedMembersLoading, setRemovedMembersLoading] = useState(false);
+  const [removedMembersHasMore, setRemovedMembersHasMore] = useState(true);
+
+  // Refs for scroll detection
+  const activeTableRef = useRef<HTMLDivElement>(null);
+  const removedTableRef = useRef<HTMLDivElement>(null);
+
+  // React Query hooks for data fetching
+  const { data: areas = [], isLoading: areasLoading, error: areasError } = useQuery({
+    queryKey: ["marketing-areas"],
+    queryFn: () => marketingHierarchyService.listAreas(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const { data: subAreas = [], isLoading: subAreasLoading, error: subAreasError } = useQuery({
+    queryKey: ["marketing-subareas"],
+    queryFn: () => marketingHierarchyService.listSubAreas(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const { data: branches = [], isLoading: branchesLoading, error: branchesError } = useQuery({
+    queryKey: ["marketing-branches"],
+    queryFn: () => marketingHierarchyService.listBranches(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const { data: rawMembers = [], isLoading: membersLoading, error: membersError } = useQuery({
+    queryKey: ["vip-members"],
+    queryFn: () => vipMemberService.listMembers(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const loading = areasLoading || subAreasLoading || branchesLoading || membersLoading;
+  const error = areasError?.message || subAreasError?.message || branchesError?.message || membersError?.message || null;
+  const chartLoading = loading;
 
   const areaMap = useMemo(
     () => new Map(areas.map((area) => [area.id, area])),

@@ -37,6 +37,7 @@ import {
   vipMemberService,
   VipMember,
 } from "@/services/marketing-service/vipMemberService";
+import { useQuery } from "@tanstack/react-query";
 
 const STATUS_META = {
   shipping: { label: "Shipping", color: "#facc15" },
@@ -246,17 +247,6 @@ const formatMonthLabel = (date: Date) =>
   });
 
 export default function GoodsDashboardPage() {
-  const [areas, setAreas] = useState<MarketingArea[]>([]);
-  const [subAreas, setSubAreas] = useState<MarketingSubArea[]>([]);
-  const [branches, setBranches] = useState<MarketingBranch[]>([]);
-  const [members, setMembers] = useState<VipMember[]>([]);
-  const [groupedShipments, setGroupedShipments] = useState<GroupedGoodsShipmentResponse[]>(
-    [],
-  );
-  const [dashboardStats, setDashboardStats] = useState<
-    GoodsDashboardStatsResponse | null
-  >(null);
-
   const [selectedAreaId, setSelectedAreaId] = useState<number | "all">("all");
   const [selectedSubAreaId, setSelectedSubAreaId] = useState<number | "all">(
     "all",
@@ -275,23 +265,82 @@ export default function GoodsDashboardPage() {
   const [endDate, setEndDate] = useState(getTodayIsoDate());
   const [trendView, setTrendView] = useState<TrendView>("day");
 
-  const [hierarchyLoading, setHierarchyLoading] = useState(false);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [shipmentsLoading, setShipmentsLoading] = useState(false);
-  const [dashboardStatsLoading, setDashboardStatsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const filtersDisabled = hierarchyLoading || membersLoading;
-
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [isPaginating, setIsPaginating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Sorting state
   const [sortBy, setSortBy] = useState("totalgoods");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // React Query hooks for data fetching
+  const { data: areas = [], isLoading: areasLoading, error: areasError } = useQuery({
+    queryKey: ["marketing-areas"],
+    queryFn: () => marketingHierarchyService.listAreas(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const { data: subAreas = [], isLoading: subAreasLoading, error: subAreasError } = useQuery({
+    queryKey: ["marketing-subareas"],
+    queryFn: () => marketingHierarchyService.listSubAreas(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const { data: branches = [], isLoading: branchesLoading, error: branchesError } = useQuery({
+    queryKey: ["marketing-branches"],
+    queryFn: () => marketingHierarchyService.listBranches(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const { data: members = [], isLoading: membersLoading, error: membersError } = useQuery({
+    queryKey: ["vip-members"],
+    queryFn: () => vipMemberService.listMembers(),
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  const { data: dashboardStats, isLoading: dashboardStatsLoading, error: dashboardStatsError } = useQuery({
+    queryKey: ["dashboard-stats", selectedAreaId, selectedSubAreaId, selectedBranchId, selectedMemberId, startDate, endDate],
+    queryFn: () => {
+      const params: any = { startDate, endDate };
+      if (selectedAreaId !== "all") params.areaId = selectedAreaId;
+      if (selectedSubAreaId !== "all") params.subAreaId = selectedSubAreaId;
+      if (selectedBranchId !== "all") params.branchId = selectedBranchId;
+      if (selectedMemberId !== "all") params.memberId = selectedMemberId;
+      return goodsShipmentService.getDashboardStats(params);
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const { data: shipmentsResponse, isLoading: shipmentsLoading, error: shipmentsError } = useQuery({
+    queryKey: ["shipments", selectedAreaId, selectedSubAreaId, selectedBranchId, selectedMemberId, startDate, endDate, currentPage, pageSize, searchQuery, sortBy, sortOrder],
+    queryFn: () => {
+      const params: any = {
+        myOnly: false,
+        startDate,
+        endDate,
+        page: currentPage,
+        size: pageSize,
+        sortBy,
+        sortOrder,
+      };
+      if (selectedAreaId !== "all") params.areaId = selectedAreaId;
+      if (selectedSubAreaId !== "all") params.subAreaId = selectedSubAreaId;
+      if (selectedBranchId !== "all") params.branchId = selectedBranchId;
+      if (selectedMemberId !== "all") params.memberId = selectedMemberId;
+      if (searchQuery.trim()) params.memberQuery = searchQuery.trim();
+      return goodsShipmentService.listRecentGroupedPaginated(params);
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  const groupedShipments = shipmentsResponse?.data || [];
+  const totalRecords = shipmentsResponse?.totalCount || 0;
+  const isPaginating = shipmentsLoading;
+
+  const hierarchyLoading = areasLoading || subAreasLoading || branchesLoading;
+  const error = areasError?.message || subAreasError?.message || branchesError?.message || membersError?.message || dashboardStatsError?.message || shipmentsError?.message || null;
+  const filtersDisabled = hierarchyLoading || membersLoading;
 
   const pageSizeOptions = [
     { value: 5, label: "5" },
@@ -322,182 +371,6 @@ export default function GoodsDashboardPage() {
     setEndDate(getTodayIsoDate());
     setStartDate(getDaysAgoIsoDate(days));
   };
-
-  useEffect(() => {
-    const loadHierarchy = async () => {
-      setHierarchyLoading(true);
-      setError(null);
-      try {
-        const [areaData, subAreaData, branchData] = await Promise.all([
-          marketingHierarchyService.listAreas(),
-          marketingHierarchyService.listSubAreas(),
-          marketingHierarchyService.listBranches(),
-        ]);
-        setAreas(areaData);
-        setSubAreas(subAreaData);
-        setBranches(branchData);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load hierarchy data.",
-        );
-      } finally {
-        setHierarchyLoading(false);
-      }
-    };
-
-    void loadHierarchy();
-  }, []);
-
-  useEffect(() => {
-    const loadMembers = async () => {
-      setMembersLoading(true);
-      try {
-        const roster = await vipMemberService.listMembers();
-        setMembers(roster);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load VIP members.",
-        );
-      } finally {
-        setMembersLoading(false);
-      }
-    };
-
-    void loadMembers();
-  }, []);
-
-  const refreshDashboardStats = useCallback(async () => {
-    setDashboardStatsLoading(true);
-    setError(null);
-    try {
-      const params: {
-        areaId?: number;
-        subAreaId?: number;
-        branchId?: number;
-        memberId?: number;
-        startDate?: string;
-        endDate?: string;
-      } = {
-        startDate,
-        endDate,
-      };
-
-      if (selectedAreaId !== "all") {
-        params.areaId = selectedAreaId;
-      }
-      if (selectedSubAreaId !== "all") {
-        params.subAreaId = selectedSubAreaId;
-      }
-      if (selectedBranchId !== "all") {
-        params.branchId = selectedBranchId;
-      }
-      if (selectedMemberId !== "all") {
-        params.memberId = selectedMemberId;
-      }
-
-      const stats = await goodsShipmentService.getDashboardStats(params);
-      setDashboardStats(stats);
-    } catch (err) {
-      setDashboardStats(null);
-      setError(
-        err instanceof Error ? err.message : "Failed to load dashboard stats.",
-      );
-    } finally {
-      setDashboardStatsLoading(false);
-    }
-  }, [
-    selectedAreaId,
-    selectedSubAreaId,
-    selectedBranchId,
-    selectedMemberId,
-    startDate,
-    endDate,
-  ]);
-
-  useEffect(() => {
-    void refreshDashboardStats();
-  }, [refreshDashboardStats]);
-
-  const refreshShipments = useCallback(async () => {
-    setShipmentsLoading(true);
-    setError(null);
-    setIsPaginating(true);
-    try {
-      const params: {
-        areaId?: number;
-        subAreaId?: number;
-        branchId?: number;
-        memberId?: number;
-        page?: number;
-        size?: number;
-        myOnly?: boolean;
-        startDate?: string;
-        endDate?: string;
-        memberQuery?: string;
-        sortBy?: string;
-        sortOrder?: string;
-      } = {
-        myOnly: false,
-        startDate,
-        endDate,
-        page: currentPage,
-        size: pageSize,
-        sortBy,
-        sortOrder,
-      };
-
-      // Add hierarchy filters
-      if (selectedAreaId !== "all") {
-        params.areaId = selectedAreaId;
-      }
-      if (selectedSubAreaId !== "all") {
-        params.subAreaId = selectedSubAreaId;
-      }
-      if (selectedBranchId !== "all") {
-        params.branchId = selectedBranchId;
-      }
-      if (selectedMemberId !== "all") {
-        params.memberId = selectedMemberId;
-      }
-      if (searchQuery.trim()) {
-        params.memberQuery = searchQuery.trim();
-      }
-
-      const paginatedResponse = await goodsShipmentService.listRecentGroupedPaginated(params);
-
-      console.log("API CALL - Params sent:", JSON.stringify(params, null, 2));
-
-      // Use the grouped data directly from backend
-      setGroupedShipments(paginatedResponse.data);
-      setTotalRecords(paginatedResponse.totalCount);
-
-    } catch (err) {
-      setGroupedShipments([]);
-      setTotalRecords(0);
-      setError(
-        err instanceof Error ? err.message : "Failed to load shipments.",
-      );
-    } finally {
-      setShipmentsLoading(false);
-      setIsPaginating(false);
-    }
-  }, [
-    selectedAreaId,
-    selectedSubAreaId,
-    selectedBranchId,
-    selectedMemberId,
-    startDate,
-    endDate,
-    currentPage,
-    pageSize,
-    searchQuery,
-    sortBy,
-    sortOrder,
-  ]);
-
-  useEffect(() => {
-    void refreshShipments();
-  }, [refreshShipments]);
 
   const availableSubAreas = useMemo(() => {
     if (selectedAreaId === "all") {
