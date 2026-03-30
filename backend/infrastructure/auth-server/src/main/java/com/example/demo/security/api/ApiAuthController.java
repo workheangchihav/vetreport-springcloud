@@ -72,12 +72,12 @@ public class ApiAuthController {
     private int lockDurationMinutes;
 
     public ApiAuthController(AuthenticationManager authenticationManager,
-                             JwtService jwtService,
-                             RefreshTokenService refreshTokenService,
-                             TokenBlacklistService tokenBlacklistService,
-                             JtiTrackingService jtiTrackingService,
-                             RateLimitService rateLimitService,
-                             UserService userService) {
+            JwtService jwtService,
+            RefreshTokenService refreshTokenService,
+            TokenBlacklistService tokenBlacklistService,
+            JtiTrackingService jtiTrackingService,
+            RateLimitService rateLimitService,
+            UserService userService) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
@@ -121,9 +121,9 @@ public class ApiAuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request,
-                                   HttpServletRequest httpRequest,
-                                   HttpServletResponse httpResponse) {
-        
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+
         // Rate limiting - 5 requests per minute per IP
         String clientIp = extractClientIp(httpRequest);
         RateLimitResult rateLimit = rateLimitService.checkLoginLimit(clientIp);
@@ -133,9 +133,8 @@ public class ApiAuthController {
                     .header("Retry-After", String.valueOf(rateLimit.retryAfterSeconds()))
                     .header("X-RateLimit-Remaining", "0")
                     .body(Map.of(
-                        "error", "Too many login attempts",
-                        "retryAfter", rateLimit.retryAfterSeconds()
-                    ));
+                            "error", "Too many login attempts",
+                            "retryAfter", rateLimit.retryAfterSeconds()));
         }
 
         log.info("Login attempt for user: {}", request.username());
@@ -144,7 +143,7 @@ public class ApiAuthController {
         Optional<User> userOpt = userService.findUserByUsername(request.username());
         if (userOpt.isPresent()) {
             User user = userOpt.get();
-            
+
             // Check if account is locked
             if (user.isAccountLocked()) {
                 if (user.isLockExpired()) {
@@ -157,10 +156,9 @@ public class ApiAuthController {
                     log.warn("Login attempt for locked account: {}", request.username());
                     return ResponseEntity.status(HttpStatus.LOCKED)
                             .body(Map.of(
-                                "error", "Account is locked",
-                                "message", "Too many failed attempts. Try again later.",
-                                "lockedUntil", user.getLockExpiresAt().toString()
-                            ));
+                                    "error", "Account is locked",
+                                    "message", "Too many failed attempts. Try again later.",
+                                    "lockedUntil", user.getLockExpiresAt().toString()));
                 }
             }
         }
@@ -168,8 +166,7 @@ public class ApiAuthController {
         try {
             // Authenticate
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.username(), request.password())
-            );
+                    new UsernamePasswordAuthenticationToken(request.username(), request.password()));
 
             // Get user
             User user = userService.findUserByUsername(request.username())
@@ -200,21 +197,20 @@ public class ApiAuthController {
             return ResponseEntity.ok(new AuthResponse(
                     accessTokenExpirationMinutes * 60,
                     refreshTokenExpirationDays * 24 * 60 * 60,
-                    "Bearer"
-            ));
+                    "Bearer"));
 
         } catch (BadCredentialsException e) {
             // Increment failed attempts
             userOpt.ifPresent(user -> {
                 int attempts = user.getFailedLoginAttempts() + 1;
                 user.setFailedLoginAttempts(attempts);
-                
+
                 if (attempts >= maxLoginAttempts) {
                     user.setAccountLocked(true);
                     user.setLockExpiresAt(Instant.now().plus(Duration.ofMinutes(lockDurationMinutes)));
                     log.warn("Account locked due to {} failed attempts: {}", attempts, user.getUsername());
                 }
-                
+
                 userService.save(user);
             });
 
@@ -234,10 +230,11 @@ public class ApiAuthController {
      */
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(@RequestBody(required = false) RefreshRequest request,
-                                     HttpServletRequest httpRequest,
-                                     HttpServletResponse httpResponse) {
-        
-        // Get refresh token ONLY from HttpOnly cookie (do not trust frontend-supplied tokens)
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+
+        // Get refresh token ONLY from HttpOnly cookie (do not trust frontend-supplied
+        // tokens)
         String refreshToken = null;
         Cookie[] cookies = httpRequest.getCookies();
         if (cookies != null) {
@@ -294,8 +291,7 @@ public class ApiAuthController {
         return ResponseEntity.ok(new AuthResponse(
                 accessTokenExpirationMinutes * 60,
                 refreshTokenExpirationDays * 24 * 60 * 60,
-                "Bearer"
-        ));
+                "Bearer"));
     }
 
     /**
@@ -303,9 +299,9 @@ public class ApiAuthController {
      */
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@RequestBody(required = false) RefreshRequest request,
-                                    HttpServletRequest httpRequest,
-                                    HttpServletResponse httpResponse) {
-        
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+
         // Rate limiting - 5 requests per minute per IP
         String clientIp = extractClientIp(httpRequest);
         RateLimitResult rateLimit = rateLimitService.checkLogoutLimit(clientIp);
@@ -315,7 +311,8 @@ public class ApiAuthController {
                     .body(Map.of("error", "Too many logout attempts"));
         }
 
-        // Get refresh token ONLY from HttpOnly cookie (do not trust frontend-supplied tokens)
+        // Get refresh token ONLY from HttpOnly cookie (do not trust frontend-supplied
+        // tokens)
         String refreshToken = null;
         Cookie[] cookies = httpRequest.getCookies();
         if (cookies != null) {
@@ -355,12 +352,13 @@ public class ApiAuthController {
     }
 
     /**
-     * Logout from all devices - revoke all refresh tokens and increment token version.
+     * Logout from all devices - revoke all refresh tokens and increment token
+     * version.
      */
     @PostMapping("/logout-all")
     public ResponseEntity<?> logoutAll(HttpServletRequest httpRequest,
-                                       HttpServletResponse httpResponse) {
-        
+            HttpServletResponse httpResponse) {
+
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() ||
                 auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken ||
@@ -427,13 +425,13 @@ public class ApiAuthController {
                 "id", user.getId(),
                 "username", user.getUsername(),
                 "fullName", user.getFullName() != null ? user.getFullName() : "",
-                "lastLoginAt", user.getLastLoginAt() != null ? user.getLastLoginAt().toString() : null
-        ));
+                "lastLoginAt", user.getLastLoginAt() != null ? user.getLastLoginAt().toString() : null));
     }
 
     // ========== Helper Methods ==========
 
-    private void setTokenCookies(HttpServletResponse response, String accessToken, String refreshToken, DeviceInfo deviceInfo) {
+    private void setTokenCookies(HttpServletResponse response, String accessToken, String refreshToken,
+            DeviceInfo deviceInfo) {
         // Ensure we are not using a servlet session for authentication
         clearSessionCookie(response);
 
@@ -445,7 +443,8 @@ public class ApiAuthController {
             deviceCookie.setSecure(secureCookies);
             deviceCookie.setPath("/");
             deviceCookie.setMaxAge(refreshTokenExpirationDays * 24 * 60 * 60);
-            deviceCookie.setAttribute("SameSite", "None");
+            // Use Lax for better mobile compatibility, None for cross-site
+            deviceCookie.setAttribute("SameSite", "Lax");
             response.addCookie(deviceCookie);
         }
 
@@ -455,7 +454,8 @@ public class ApiAuthController {
         accessCookie.setSecure(secureCookies);
         accessCookie.setPath("/");
         accessCookie.setMaxAge(accessTokenExpirationMinutes * 60);
-        accessCookie.setAttribute("SameSite", "None");
+        // Use Lax for better mobile compatibility
+        accessCookie.setAttribute("SameSite", "Lax");
         response.addCookie(accessCookie);
 
         // Refresh token cookie - longer-lived
@@ -464,7 +464,8 @@ public class ApiAuthController {
         refreshCookie.setSecure(secureCookies);
         refreshCookie.setPath("/");
         refreshCookie.setMaxAge(refreshTokenExpirationDays * 24 * 60 * 60);
-        refreshCookie.setAttribute("SameSite", "None");
+        // Use Lax for better mobile compatibility
+        refreshCookie.setAttribute("SameSite", "Lax");
         response.addCookie(refreshCookie);
     }
 
@@ -476,7 +477,7 @@ public class ApiAuthController {
         deviceCookie.setSecure(secureCookies);
         deviceCookie.setPath("/");
         deviceCookie.setMaxAge(0);
-        deviceCookie.setAttribute("SameSite", "None");
+        deviceCookie.setAttribute("SameSite", "Lax");
         response.addCookie(deviceCookie);
 
         Cookie accessCookie = new Cookie("access_token", "");
@@ -484,7 +485,7 @@ public class ApiAuthController {
         accessCookie.setSecure(secureCookies);
         accessCookie.setPath("/");
         accessCookie.setMaxAge(0);
-        accessCookie.setAttribute("SameSite", "None");
+        accessCookie.setAttribute("SameSite", "Lax");
         response.addCookie(accessCookie);
 
         Cookie refreshCookie = new Cookie("refresh_token", "");
@@ -492,7 +493,7 @@ public class ApiAuthController {
         refreshCookie.setSecure(secureCookies);
         refreshCookie.setPath("/");
         refreshCookie.setMaxAge(0);
-        refreshCookie.setAttribute("SameSite", "None");
+        refreshCookie.setAttribute("SameSite", "Lax");
         response.addCookie(refreshCookie);
     }
 
@@ -502,7 +503,7 @@ public class ApiAuthController {
         sessionCookie.setSecure(secureCookies);
         sessionCookie.setPath("/");
         sessionCookie.setMaxAge(0);
-        sessionCookie.setAttribute("SameSite", "None");
+        sessionCookie.setAttribute("SameSite", "Lax");
         response.addCookie(sessionCookie);
     }
 
@@ -511,7 +512,7 @@ public class ApiAuthController {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
-        
+
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
@@ -520,7 +521,7 @@ public class ApiAuthController {
                 }
             }
         }
-        
+
         return null;
     }
 
@@ -545,19 +546,21 @@ public class ApiAuthController {
             @NotBlank(message = "Username is required") String username,
             @NotBlank(message = "Password is required") String password,
             String deviceId // Optional client-provided device ID
-    ) {}
+    ) {
+    }
 
     public record RegisterRequest(
             @NotBlank(message = "Username is required") String username,
             @NotBlank(message = "Password is required") String password,
-            @NotBlank(message = "Full name is required") String fullName
-    ) {}
+            @NotBlank(message = "Full name is required") String fullName) {
+    }
 
-    public record RefreshRequest(String refreshToken, String deviceId) {}
+    public record RefreshRequest(String refreshToken, String deviceId) {
+    }
 
     public record AuthResponse(
             int accessTokenExpiresIn,
             int refreshTokenExpiresIn,
-            String tokenType
-    ) {}
+            String tokenType) {
+    }
 }
