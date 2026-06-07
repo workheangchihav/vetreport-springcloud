@@ -135,6 +135,7 @@ export function AppShell({ children }: AppShellProps) {
     deriveSectionId(pathname, accessibleSections),
   );
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [tabs, setTabs] = useState<TabItem[]>([]);
   const [activeTabPath, setActiveTabPath] = useState(pathname ?? "");
   const [pendingNavigationPath, setPendingNavigationPath] = useState<
@@ -272,54 +273,84 @@ export function AppShell({ children }: AppShellProps) {
       </div>
 
       {/* Desktop Sidebar — plain flex child, content follows naturally */}
-      <div className="hidden lg:flex w-80 shrink-0 h-full">
-        <Sidebar
-          sections={accessibleSections}
-          activeSectionId={activeSectionId}
-          activePathname={pathname ?? ""}
-          onSelectSection={setActiveSectionId}
-          onOpenItem={(item, sectionId) => {
-            setActiveTabPath(item.path);
-            setTabs((prev) => {
-              if (prev.some((tab) => tab.path === item.path)) {
-                return prev;
-              }
-              return [...prev, { path: item.path, label: item.label, sectionId }];
-            });
-            router.push(withLocaleQuery(item.path, locale));
-          }}
-          isMobile={false}
-          user={user}
-          isAuthenticated={isAuthenticated}
-          logout={logout}
-        />
+      <div className={`hidden lg:flex shrink-0 h-full transition-all duration-300 ease-in-out ${sidebarCollapsed ? "w-0 overflow-hidden opacity-0" : "w-80 opacity-100"}`}>
+        <div className="w-80 shrink-0 h-full">
+          <Sidebar
+            sections={accessibleSections}
+            activeSectionId={activeSectionId}
+            activePathname={pathname ?? ""}
+            onSelectSection={setActiveSectionId}
+            onOpenItem={(item, sectionId) => {
+              setActiveTabPath(item.path);
+              setTabs((prev) => {
+                if (prev.some((tab) => tab.path === item.path)) {
+                  return prev;
+                }
+                return [...prev, { path: item.path, label: item.label, sectionId }];
+              });
+              router.push(withLocaleQuery(item.path, locale));
+            }}
+            isMobile={false}
+            user={user}
+            isAuthenticated={isAuthenticated}
+            logout={logout}
+          />
+        </div>
       </div>
+
+      {/* Sidebar Toggle Button */}
+      <button
+        onClick={() => {
+          if (window.innerWidth < 1024) {
+            setMobileSidebarOpen(!mobileSidebarOpen);
+          } else {
+            setSidebarCollapsed(!sidebarCollapsed);
+          }
+        }}
+        className={`flex fixed top-4 z-50 h-10 w-10 items-center justify-center rounded-r-xl bg-slate-800 border-y border-r border-slate-700 text-slate-300 hover:bg-orange-600 hover:text-white transition-all duration-300 ease-in-out shadow-lg ${
+          mobileSidebarOpen ? "left-80" : "left-0"
+        } lg:${sidebarCollapsed ? "left-0" : "left-80"}`}
+        aria-label="Toggle sidebar"
+      >
+        {/* Mobile Icons (< 1024px) */}
+        <div className="lg:hidden">
+          {!mobileSidebarOpen ? (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          )}
+        </div>
+        {/* Desktop Icons (>= 1024px) */}
+        <div className="hidden lg:block">
+          {sidebarCollapsed ? (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          )}
+        </div>
+      </button>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
         <div className="w-full min-h-full lg:px-10 lg:pr-18">
           {/* Combined Header with Tabs */}
           <div className="mb-4 bg-slate-800 border-b border-slate-700">
-            {/* Header Section - Just the menu button */}
-            <div>
-              <button
-                type="button"
-                onClick={() => setMobileSidebarOpen(true)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-700 border border-slate-600 text-slate-300 hover:bg-orange-600 hover:text-white lg:hidden"
-                aria-label="Open navigation"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-            </div>
+
 
             {/* Tabs Section - Fixed at the top */}
             {tabs.length > 0 && (
               <div className="bg-slate-800 border-b border-slate-700">
                 <div className="relative">
 
-                  <nav className="flex items-center gap-2 px-4 py-3 overflow-x-auto scrollbar-hide whitespace-nowrap">
+                  <nav className="flex items-center gap-2 px-4 pl-16 lg:pl-4 py-3 overflow-x-auto scrollbar-hide whitespace-nowrap">
                     {tabs.map((tab) => {
                       const isActive = activeTabPath.startsWith(tab.path);
                       return (
@@ -439,17 +470,7 @@ function Sidebar({
             </div>
           </div>
         </div>
-        {isMobile && onClose && (
-          <button
-            onClick={onClose}
-            className="absolute right-4 p-2 rounded-lg hover:bg-slate-800"
-            aria-label="Close menu"
-          >
-            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
+
       </div>
 
       {/* Content */}
