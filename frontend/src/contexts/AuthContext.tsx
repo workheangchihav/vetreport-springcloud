@@ -101,7 +101,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const login = async (data: LoginRequest) => {
-    setIsLoading(true);
     clearError();
 
     try {
@@ -115,8 +114,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setError("Login failed");
       }
       throw err;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -140,35 +137,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = async () => {
-    setIsLoading(true);
+    // Clear user immediately so the redirect is instant
+    setUser(null);
     clearError();
-
-    try {
-      await apiService.logout();
-      setUser(null);
-    } catch (err: unknown) {
-      console.error("Logout failed:", err);
-      // Still clear user state even if logout request fails
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
+    // Fire API call in the background — don't block the UI
+    apiService.logout().catch((err) => console.error("Logout API failed:", err));
   };
 
   const logoutAll = async () => {
-    setIsLoading(true);
+    // Clear user immediately so the redirect is instant
+    setUser(null);
     clearError();
-
-    try {
-      await apiService.logoutAll();
-      setUser(null);
-    } catch (err: unknown) {
-      console.error("Logout all failed:", err);
-      // Still clear user state even if logout request fails
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
+    // Fire API call in the background — don't block the UI
+    apiService.logoutAll().catch((err) => console.error("Logout all API failed:", err));
   };
 
   // Service access methods
