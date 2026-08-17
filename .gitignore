@@ -41,6 +41,9 @@ build/
 *.sql
 *.sql.gz
 
+# Allow docker database init scripts
+!devops/docker/initdb/*.sql
+
 # Temporary files
 cookies.txt
 *.log

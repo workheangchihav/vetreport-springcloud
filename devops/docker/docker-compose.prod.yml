@@ -38,7 +38,7 @@ services:
 
   auth-server:
 
-    image: ${DOCKER_HUB_USERNAME}/auth-server:${IMAGE_TAG}
+    image: ${DOCKER_HUB_USERNAME}/vetreport-auth-server:${IMAGE_TAG}
     container_name: demo-auth-server
     restart: unless-stopped
     ports:
@@ -71,7 +71,7 @@ services:
 
   call-service:
 
-    image: ${DOCKER_HUB_USERNAME}/call-service:${IMAGE_TAG}
+    image: ${DOCKER_HUB_USERNAME}/vetreport-call-service:${IMAGE_TAG}
     container_name: demo-call-service
     restart: unless-stopped
     ports:
@@ -99,7 +99,7 @@ services:
 
   marketing-service:
 
-    image: ${DOCKER_HUB_USERNAME}/marketing-service:${IMAGE_TAG}
+    image: ${DOCKER_HUB_USERNAME}/vetreport-marketing-service:${IMAGE_TAG}
     container_name: demo-marketing-service
     restart: unless-stopped
     ports:
@@ -127,7 +127,7 @@ services:
 
   branchreport-service:
 
-    image: ${DOCKER_HUB_USERNAME}/branchreport-service:${IMAGE_TAG}
+    image: ${DOCKER_HUB_USERNAME}/vetreport-branchreport-service:${IMAGE_TAG}
     container_name: demo-branchreport-service
     restart: unless-stopped
     ports:
@@ -153,7 +153,7 @@ services:
 
   region-service:
 
-    image: ${DOCKER_HUB_USERNAME}/region-service:${IMAGE_TAG}
+    image: ${DOCKER_HUB_USERNAME}/vetreport-region-service:${IMAGE_TAG}
     container_name: demo-region-service
     restart: unless-stopped
     ports:
@@ -172,7 +172,7 @@ services:
 
   delivery-service:
 
-    image: ${DOCKER_HUB_USERNAME}/delivery-service:${IMAGE_TAG}
+    image: ${DOCKER_HUB_USERNAME}/vetreport-delivery-service:${IMAGE_TAG}
     container_name: demo-delivery-service
     restart: unless-stopped
     ports:
@@ -194,7 +194,7 @@ services:
 
   gateway:
 
-    image: ${DOCKER_HUB_USERNAME}/gateway:${IMAGE_TAG}
+    image: ${DOCKER_HUB_USERNAME}/vetreport-gateway:${IMAGE_TAG}
     container_name: demo-gateway
     restart: unless-stopped
     env_file:
