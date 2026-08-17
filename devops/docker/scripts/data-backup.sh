@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # ============================================================================
-# PostgreSQL Data Backup Script - Includes Schema and Data
+# PostgreSQL Data Backup Script for Docker
 # ============================================================================
-# This script creates complete backups with both schema and data
+# This script creates timestamped backups with complete data for Docker
 # Usage: ./data-backup.sh [backup_dir]
 # ============================================================================
 
@@ -14,11 +14,19 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 # Configuration
-CONTAINER_NAME="${POSTGRES_CONTAINER:-demo-postgres}"
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
 BACKUP_DIR="${1:-./backups}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
+
+CONTAINER_NAME="demo-postgres"
+
+# Check if container is running
+if ! docker ps --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
+    echo -e "${RED}Error: PostgreSQL container '${CONTAINER_NAME}' is not running${NC}"
+    echo "Make sure you started the project with 'docker compose up -d'"
+    exit 1
+fi
 
 # Database list
 DATABASES=(
@@ -32,17 +40,11 @@ DATABASES=(
 # Create backup directory
 mkdir -p "${BACKUP_DIR}"
 
-echo -e "${YELLOW}=== PostgreSQL Data Backup Started ===${NC}"
+echo -e "${YELLOW}=== Docker PostgreSQL Data Backup Started ===${NC}"
 echo "Container: ${CONTAINER_NAME}"
 echo "Backup Directory: ${BACKUP_DIR}"
 echo "Timestamp: ${TIMESTAMP}"
 echo ""
-
-# Check if container is running
-if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo -e "${RED}Error: Container ${CONTAINER_NAME} is not running${NC}"
-    exit 1
-fi
 
 # Backup each database with complete data
 for db in "${DATABASES[@]}"; do
@@ -51,7 +53,7 @@ for db in "${DATABASES[@]}"; do
     echo -e "${YELLOW}Backing up database with data: ${db}${NC}"
     
     # Use pg_dump with explicit data inclusion
-    if docker exec "${CONTAINER_NAME}" pg_dump -U "${POSTGRES_USER}" --verbose --column-inserts "${db}" 2>/dev/null | gzip > "${BACKUP_FILE}"; then
+    if docker exec -i "${CONTAINER_NAME}" pg_dump -U "${POSTGRES_USER}" --verbose --column-inserts "${db}" 2>/dev/null | gzip > "${BACKUP_FILE}"; then
         SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
         echo -e "${GREEN}✓ Data backup successful: ${BACKUP_FILE} (${SIZE})${NC}"
     else
@@ -64,7 +66,7 @@ done
 ALL_DATA_BACKUP_FILE="${BACKUP_DIR}/all_databases_data_${TIMESTAMP}.sql.gz"
 echo -e "${YELLOW}Creating complete data backup of all databases...${NC}"
 
-if docker exec "${CONTAINER_NAME}" pg_dumpall -U "${POSTGRES_USER}" --verbose 2>/dev/null | gzip > "${ALL_DATA_BACKUP_FILE}"; then
+if docker exec -i "${CONTAINER_NAME}" pg_dumpall -U "${POSTGRES_USER}" --verbose 2>/dev/null | gzip > "${ALL_DATA_BACKUP_FILE}"; then
     SIZE=$(du -h "${ALL_DATA_BACKUP_FILE}" | cut -f1)
     echo -e "${GREEN}✓ Complete data backup successful: ${ALL_DATA_BACKUP_FILE} (${SIZE})${NC}"
 else

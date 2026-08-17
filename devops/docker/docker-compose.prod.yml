@@ -37,9 +37,7 @@ services:
       - app-network
 
   auth-server:
-    build:
-      context: ../../backend/infrastructure/auth-server
-      dockerfile: Dockerfile
+
     image: ${DOCKER_HUB_USERNAME}/auth-server:${IMAGE_TAG}
     container_name: demo-auth-server
     restart: unless-stopped
@@ -72,9 +70,7 @@ services:
       start_period: 30s
 
   call-service:
-    build:
-      context: ../../backend/services/call-service
-      dockerfile: Dockerfile
+
     image: ${DOCKER_HUB_USERNAME}/call-service:${IMAGE_TAG}
     container_name: demo-call-service
     restart: unless-stopped
@@ -102,9 +98,7 @@ services:
         condition: service_started
 
   marketing-service:
-    build:
-      context: ../../backend/services/marketing-service
-      dockerfile: Dockerfile
+
     image: ${DOCKER_HUB_USERNAME}/marketing-service:${IMAGE_TAG}
     container_name: demo-marketing-service
     restart: unless-stopped
@@ -132,9 +126,7 @@ services:
         condition: service_started
 
   branchreport-service:
-    build:
-      context: ../../backend/services/branchreport-service
-      dockerfile: Dockerfile
+
     image: ${DOCKER_HUB_USERNAME}/branchreport-service:${IMAGE_TAG}
     container_name: demo-branchreport-service
     restart: unless-stopped
@@ -160,9 +152,7 @@ services:
       start_period: 30s
 
   region-service:
-    build:
-      context: ../../backend/services/platform/region-service
-      dockerfile: Dockerfile
+
     image: ${DOCKER_HUB_USERNAME}/region-service:${IMAGE_TAG}
     container_name: demo-region-service
     restart: unless-stopped
@@ -181,9 +171,7 @@ services:
       - app-network
 
   delivery-service:
-    build:
-      context: ../../backend/services/delivery-service
-      dockerfile: Dockerfile
+
     image: ${DOCKER_HUB_USERNAME}/delivery-service:${IMAGE_TAG}
     container_name: demo-delivery-service
     restart: unless-stopped
@@ -205,9 +193,7 @@ services:
         condition: service_healthy
 
   gateway:
-    build:
-      context: ../../backend/infrastructure/gateway
-      dockerfile: Dockerfile
+
     image: ${DOCKER_HUB_USERNAME}/gateway:${IMAGE_TAG}
     container_name: demo-gateway
     restart: unless-stopped

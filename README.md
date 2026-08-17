@@ -23,21 +23,16 @@ demo/
 ├── frontend/               # Next.js application
 │   └── .env.local -> ../.env  # Symlink to root .env
 │
-└── infra/
+└── devops/
     ├── docker/            # Docker Compose setup
     │   ├── .env -> ../../.env         # Symlink to root .env
     │   ├── .env.example -> ../../.env.example
-    │   └── docker-compose.yml
-    │
-    ├── k8s/               # Kubernetes manifests
-    │   ├── .env -> ../../.env         # Symlink to root .env
-    │   ├── .env.example -> ../../.env.example
-    │   ├── deploy.sh      # Deployment script
-    │   └── *.yaml         # K8s resources
+    │   ├── docker-compose.yml     # Local development
+    │   └── docker-compose.prod.yml # Production
     │
     └── cloudflared/       # Cloudflare tunnel config
         ├── config.yml
-        ├── demo-tunnel.json
+        ├── vetapi-khmersoftware.json
         └── cert.pem
 ```
 
@@ -56,16 +51,8 @@ nano .env
 ### 2. Run with Docker Compose
 
 ```bash
-cd infra/docker
+cd devops/docker
 docker compose up -d
-```
-
-### 3. Deploy to Kubernetes
-
-```bash
-cd infra/k8s
-chmod +x deploy.sh
-./deploy.sh
 ```
 
 ## Centralized Configuration
@@ -95,7 +82,6 @@ ALLOWED_ORIGINS=http://localhost:3000,https://vetapi.mooniris.com,https://dev.mo
 - **Root `.env`**: Single source of truth
 - **Symlinks**: All subdirectories link to root `.env`
 - **Docker Compose**: Automatically reads `.env` from its directory
-- **Kubernetes**: `deploy.sh` reads from root `.env` and substitutes variables
 - **Frontend**: Next.js reads `.env.local` (symlinked to root `.env`)
 - **Backend**: Can read root `.env` for local development
 
@@ -116,12 +102,8 @@ ALLOWED_ORIGINS=http://localhost:3000,https://vetapi.mooniris.com,https://dev.mo
 CLOUDFLARE_DOMAIN=new-domain.com
 
 # Restart services
-cd infra/docker
+cd devops/docker
 docker compose restart cloudflared
-
-# Or redeploy to K8s
-cd infra/k8s
-./deploy.sh
 ```
 
 ### Multiple Environments
@@ -160,18 +142,9 @@ npm run dev
 ### Docker Development
 
 ```bash
-cd infra/docker
+cd devops/docker
 docker compose up -d
 docker compose logs -f
-```
-
-### Kubernetes Development
-
-```bash
-cd infra/k8s
-./deploy.sh
-kubectl get all -n demo
-kubectl logs -n demo -l app=cloudflared
 ```
 
 ## Services
@@ -196,14 +169,13 @@ The application uses Cloudflare Tunnel for secure external access:
 
 - **Domain**: Configured via `CLOUDFLARE_DOMAIN` in `.env`
 - **Tunnel**: Named tunnel with credentials
-- **Config**: `/infra/cloudflared/config.yml` (uses env variables)
-- **Docs**: See `/infra/cloudflared/README.md`
+- **Config**: `/devops/cloudflared/config.yml` (uses env variables)
+- **Docs**: See `/devops/cloudflared/README.md`
 
 ## Documentation
 
-- **Docker Compose**: See `/infra/docker/README.md` (if exists)
-- **Kubernetes**: See `/infra/k8s/README.md`
-- **Cloudflare**: See `/infra/cloudflared/README.md`
+- **Docker Compose**: See `/devops/docker/README.md` (if exists)
+- **Cloudflare**: See `/devops/cloudflared/README.md`
 
 ## Best Practices
 
@@ -241,21 +213,10 @@ docker compose down
 docker compose up -d
 ```
 
-### Kubernetes Issues
-
-```bash
-# Check deploy script
-cd infra/k8s
-./deploy.sh
-
-# Verify variables are substituted
-kubectl get configmap -n demo -o yaml
-```
-
 ## Support
 
 For issues or questions:
 1. Check `.env` file exists and has correct values
 2. Verify symlinks are working: `ls -la */**.env*`
 3. Check service logs: `docker compose logs <service>`
-4. Review documentation in `/infra/*/README.md`
+4. Review documentation in `/devops/*/README.md`

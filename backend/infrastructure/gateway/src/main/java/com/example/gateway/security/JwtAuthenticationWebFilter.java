@@ -66,8 +66,21 @@ public class JwtAuthenticationWebFilter implements WebFilter {
                     // Add custom claims to details for downstream services
                     auth.setDetails(claims);
 
+                    // Inject user identity headers for downstream microservices
+                    String userId = claims.get("uid") != null ? claims.get("uid").toString() : "";
+                    String username = claims.getSubject() != null ? claims.getSubject() : "";
+                    
+                    ServerHttpRequest mutatedRequest = request.mutate()
+                            .header("X-User-Id", userId)
+                            .header("X-Username", username)
+                            .build();
+                            
+                    ServerWebExchange mutatedExchange = exchange.mutate()
+                            .request(mutatedRequest)
+                            .build();
+
                     // Set authentication in Spring Security context
-                    return chain.filter(exchange)
+                    return chain.filter(mutatedExchange)
                             .contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth))
                             .doOnSuccess(
                                     aVoid -> log.debug("Authentication successful for user: {}", claims.getSubject()));

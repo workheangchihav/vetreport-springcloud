@@ -1,7 +1,0 @@
-tunnel: demo-dev-tunnel
-credentials-file: /etc/cloudflared/demo-dev-tunnel.json
-
-ingress:
-  - hostname: dev.mooniris.com
-    service: http://nginx:80
-  - service: http_status:404

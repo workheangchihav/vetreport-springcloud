@@ -1,7 +1,9 @@
-tunnel: demo-tunnel
-credentials-file: /etc/cloudflared/demo-tunnel.json
+tunnel: vetapi-khmersoftware
+credentials-file: /etc/cloudflared/vetapi-khmersoftware.json
 
 ingress:
-  - hostname: vetapi.mooniris.com
+  - hostname: vetapi.khmersoftware.com
+    service: http://nginx:80
+  - hostname: dev.khmersoftware.com
     service: http://nginx:80
   - service: http_status:404

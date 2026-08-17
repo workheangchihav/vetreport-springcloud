@@ -44,7 +44,7 @@ spring:
         add-to-simple-url-handler-mapping: true
         corsConfigurations:
           '[/**]':
-            allowedOriginPatterns: ${GATEWAY_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,https://vetapi.mooniris.com,https://dev.mooniris.com,https://vetreport.vercel.app,exp://*,*}
+            allowedOriginPatterns: ${GATEWAY_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,https://vetapi.khmersoftware.com,https://dev.khmersoftware.com,https://vetreport.vercel.app,exp://*,*}
             allowedMethods:
               - GET
               - POST

@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # ============================================================================
-# PostgreSQL Data Restore Script - Restore with Data
+# PostgreSQL Data Restore Script for Docker
 # ============================================================================
-# This script restores PostgreSQL databases with complete data from backup files
+# This script restores PostgreSQL databases with complete data in Docker
 # Usage: ./data-restore.sh <backup_file> [database_name]
 # ============================================================================
 
@@ -15,8 +15,8 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-CONTAINER_NAME="${POSTGRES_CONTAINER:-demo-postgres}"
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
+CONTAINER_NAME="demo-postgres"
 
 # Check arguments
 if [ $# -lt 1 ]; then
@@ -39,14 +39,12 @@ if [ ! -f "${BACKUP_FILE}" ]; then
 fi
 
 # Check if container is running
-if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo -e "${RED}Error: Container ${CONTAINER_NAME} is not running${NC}"
-    echo "Please start PostgreSQL container first:"
-    echo "  docker compose up -d postgres"
+if ! docker ps --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
+    echo -e "${RED}Error: PostgreSQL container '${CONTAINER_NAME}' is not running${NC}"
     exit 1
 fi
 
-echo -e "${BLUE}=== PostgreSQL Data Restore Started ===${NC}"
+echo -e "${BLUE}=== Docker PostgreSQL Data Restore Started ===${NC}"
 echo "Container: ${CONTAINER_NAME}"
 echo "Backup File: ${BACKUP_FILE}"
 echo ""
@@ -58,7 +56,7 @@ restore_database() {
     
     # Terminate existing connections to this database
     echo -e "${YELLOW}Terminating connections to ${db_name}...${NC}"
-    docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" postgres -c "
+    docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" postgres -c "
         SELECT pg_terminate_backend(pid) 
         FROM pg_stat_activity 
         WHERE datname = '${db_name}' 
@@ -67,8 +65,8 @@ restore_database() {
     
     # Drop and recreate database for clean restore
     echo -e "${YELLOW}Recreating database ${db_name}...${NC}"
-    docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" postgres -c "DROP DATABASE IF EXISTS ${db_name};" || true
-    docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" postgres -c "CREATE DATABASE ${db_name};" || true
+    docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" postgres -c "DROP DATABASE IF EXISTS ${db_name};" || true
+    docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" postgres -c "CREATE DATABASE ${db_name};" || true
     
     # Restore the database with data
     echo -e "${YELLOW}Restoring schema and data to ${db_name}...${NC}"
@@ -79,23 +77,23 @@ restore_database() {
         echo -e "${YELLOW}Verifying data in ${db_name}...${NC}"
         case "${db_name}" in
             "user_service_db")
-                ROW_COUNT=$(docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM users;" "${db_name}" | tr -d ' ')
+                ROW_COUNT=$(docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM users;" "${db_name}" | tr -d ' ')
                 echo -e "${GREEN}✓ Users restored: ${ROW_COUNT} records${NC}"
                 ;;
             "marketing_service_db")
-                ROW_COUNT=$(docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM marketing_areas;" "${db_name}" | tr -d ' ')
+                ROW_COUNT=$(docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM marketing_areas;" "${db_name}" | tr -d ' ')
                 echo -e "${GREEN}✓ Marketing areas restored: ${ROW_COUNT} records${NC}"
                 ;;
             "call_service_db")
-                TABLES=$(docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" "${db_name}" | tr -d ' ')
+                TABLES=$(docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" "${db_name}" | tr -d ' ')
                 echo -e "${GREEN}✓ Call service tables restored: ${TABLES} tables${NC}"
                 ;;
             "delivery_service_db")
-                TABLES=$(docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" "${db_name}" | tr -d ' ')
+                TABLES=$(docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" "${db_name}" | tr -d ' ')
                 echo -e "${GREEN}✓ Delivery service tables restored: ${TABLES} tables${NC}"
                 ;;
             "region_service_db")
-                TABLES=$(docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" "${db_name}" | tr -d ' ')
+                TABLES=$(docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" "${db_name}" | tr -d ' ')
                 echo -e "${GREEN}✓ Region service tables restored: ${TABLES} tables${NC}"
                 ;;
         esac
@@ -108,7 +106,7 @@ restore_database() {
 
 # Determine restore type
 if [[ "${BACKUP_FILE}" == *"all_databases_data"* ]]; then
-    # Full data backup restore - FIXED VERSION
+    # Full data backup restore
     echo -e "${YELLOW}Restoring all databases from data backup...${NC}"
     echo -e "${RED}WARNING: This will override all existing data!${NC}"
     read -p "Are you sure you want to continue? (yes/no): " -r
@@ -121,7 +119,7 @@ if [[ "${BACKUP_FILE}" == *"all_databases_data"* ]]; then
     echo -e "${YELLOW}Dropping existing databases...${NC}"
     for db in user_service_db marketing_service_db call_service_db delivery_service_db region_service_db; do
         echo -e "${YELLOW}  - Terminating connections to ${db}...${NC}"
-        docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" postgres -c "
+        docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" postgres -c "
             SELECT pg_terminate_backend(pid) 
             FROM pg_stat_activity 
             WHERE datname = '${db}' 
@@ -129,7 +127,7 @@ if [[ "${BACKUP_FILE}" == *"all_databases_data"* ]]; then
         " 2>/dev/null || true
         
         echo -e "${YELLOW}  - Dropping ${db}...${NC}"
-        docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" postgres -c "DROP DATABASE IF EXISTS ${db};" 2>/dev/null || true
+        docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" postgres -c "DROP DATABASE IF EXISTS ${db};" 2>/dev/null || true
     done
     
     # Now restore the entire backup at once
@@ -141,40 +139,40 @@ if [[ "${BACKUP_FILE}" == *"all_databases_data"* ]]; then
         echo -e "${YELLOW}Verifying restored databases...${NC}"
         
         # Check user service
-        if docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM users;" user_service_db >/dev/null 2>&1; then
-            USER_COUNT=$(docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM users;" user_service_db | tr -d ' ')
+        if docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM users;" user_service_db >/dev/null 2>&1; then
+            USER_COUNT=$(docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM users;" user_service_db | tr -d ' ')
             echo -e "${GREEN}✓ User Service: ${USER_COUNT} users restored${NC}"
         else
             echo -e "${YELLOW}⚠ User Service: No users table found${NC}"
         fi
         
         # Check marketing service
-        if docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM marketing_areas;" marketing_service_db >/dev/null 2>&1; then
-            MARKETING_COUNT=$(docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM marketing_areas;" marketing_service_db | tr -d ' ')
+        if docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM marketing_areas;" marketing_service_db >/dev/null 2>&1; then
+            MARKETING_COUNT=$(docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM marketing_areas;" marketing_service_db | tr -d ' ')
             echo -e "${GREEN}✓ Marketing Service: ${MARKETING_COUNT} marketing areas restored${NC}"
         else
             echo -e "${YELLOW}⚠ Marketing Service: No marketing areas table found${NC}"
         fi
         
         # Check call service
-        if docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" call_service_db >/dev/null 2>&1; then
-            CALL_TABLES=$(docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" call_service_db | tr -d ' ')
+        if docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" call_service_db >/dev/null 2>&1; then
+            CALL_TABLES=$(docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" call_service_db | tr -d ' ')
             echo -e "${GREEN}✓ Call Service: ${CALL_TABLES} tables restored${NC}"
         else
             echo -e "${YELLOW}⚠ Call Service: No tables found${NC}"
         fi
         
         # Check delivery service
-        if docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" delivery_service_db >/dev/null 2>&1; then
-            DELIVERY_TABLES=$(docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" delivery_service_db | tr -d ' ')
+        if docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" delivery_service_db >/dev/null 2>&1; then
+            DELIVERY_TABLES=$(docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" delivery_service_db | tr -d ' ')
             echo -e "${GREEN}✓ Delivery Service: ${DELIVERY_TABLES} tables restored${NC}"
         else
             echo -e "${YELLOW}⚠ Delivery Service: No tables found${NC}"
         fi
         
         # Check region service
-        if docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" region_service_db >/dev/null 2>&1; then
-            REGION_TABLES=$(docker exec "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" region_service_db | tr -d ' ')
+        if docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" region_service_db >/dev/null 2>&1; then
+            REGION_TABLES=$(docker exec -i "${CONTAINER_NAME}" psql -U "${POSTGRES_USER}" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" region_service_db | tr -d ' ')
             echo -e "${GREEN}✓ Region Service: ${REGION_TABLES} tables restored${NC}"
         else
             echo -e "${YELLOW}⚠ Region Service: No tables found${NC}"
@@ -209,15 +207,14 @@ echo -e "${BLUE}Note: Services may need to reconnect to databases${NC}"
 
 # Ask if user wants to restart services
 echo ""
-read -p "Do you want to restart services now? (y/n): " -r
+read -p "Do you want to restart docker services now? (y/n): " -r
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}Restarting services...${NC}"
-    if cd ../../docker && docker compose -f docker-compose.dev.yml restart; then
+    echo -e "${YELLOW}Restarting docker services...${NC}"
+    if docker compose restart; then
         echo -e "${GREEN}✓ Services restarted successfully${NC}"
     else
-        echo -e "${YELLOW}⚠ Service restart completed with some warnings (this is normal)${NC}"
+        echo -e "${YELLOW}⚠ Service restart completed with some warnings${NC}"
     fi
-    echo -e "${BLUE}Services should now be connected to the restored data${NC}"
 else
     echo -e "${BLUE}You can restart services manually with: docker compose restart${NC}"
 fi

@@ -7,6 +7,11 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
+import org.springframework.http.HttpStatus;
+import reactor.core.publisher.Mono;
+
+import org.springframework.security.config.Customizer;
+
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
@@ -14,12 +19,10 @@ public class SecurityConfig {
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         return http
+            .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable())
             .authorizeExchange(exchanges -> exchanges
-                .pathMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
-                .pathMatchers(HttpMethod.GET, "/actuator/health").permitAll()
-                .pathMatchers("/api/branchreport/**").permitAll()
-                .anyExchange().authenticated()
+                .anyExchange().permitAll()
             )
             .build();
     }
