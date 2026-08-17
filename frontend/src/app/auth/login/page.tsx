@@ -86,11 +86,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 lg:p-12">
       <div className="w-full max-w-7xl flex flex-col lg:flex-row min-h-screen lg:min-h-0 lg:rounded-2xl lg:overflow-hidden lg:shadow-2xl border border-slate-800">
 
         {/* Left panel — branding */}
-        <div className="hidden lg:flex lg:w-[55%] relative">
+        <div className="hidden lg:flex lg:w-[45%] relative">
           <img
             src="/background.jpg"
             alt="Background"
@@ -266,7 +266,15 @@ export default function LoginPage() {
             </form>
 
             <p className="mt-8 text-center text-xs text-slate-600">
-              Protected by enterprise-grade encryption
+              Protected by{" "}
+              <a
+                href="https://khmersoftware.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-slate-400 hover:underline transition-colors"
+              >
+                khmersoftware
+              </a>
             </p>
           </div>
         </div>
