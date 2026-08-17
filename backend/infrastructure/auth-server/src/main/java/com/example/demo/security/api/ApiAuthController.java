@@ -444,7 +444,7 @@ public class ApiAuthController {
             deviceCookie.setPath("/");
             deviceCookie.setMaxAge(refreshTokenExpirationDays * 24 * 60 * 60);
             // Use Lax for better mobile compatibility, None for cross-site
-            deviceCookie.setAttribute("SameSite", "Lax");
+            deviceCookie.setAttribute("SameSite", "None");
             response.addCookie(deviceCookie);
         }
 
@@ -455,7 +455,7 @@ public class ApiAuthController {
         accessCookie.setPath("/");
         accessCookie.setMaxAge(accessTokenExpirationMinutes * 60);
         // Use Lax for better mobile compatibility
-        accessCookie.setAttribute("SameSite", "Lax");
+        accessCookie.setAttribute("SameSite", "None");
         response.addCookie(accessCookie);
 
         // Refresh token cookie - longer-lived
@@ -465,7 +465,7 @@ public class ApiAuthController {
         refreshCookie.setPath("/");
         refreshCookie.setMaxAge(refreshTokenExpirationDays * 24 * 60 * 60);
         // Use Lax for better mobile compatibility
-        refreshCookie.setAttribute("SameSite", "Lax");
+        refreshCookie.setAttribute("SameSite", "None");
         response.addCookie(refreshCookie);
     }
 
@@ -477,7 +477,7 @@ public class ApiAuthController {
         deviceCookie.setSecure(secureCookies);
         deviceCookie.setPath("/");
         deviceCookie.setMaxAge(0);
-        deviceCookie.setAttribute("SameSite", "Lax");
+        deviceCookie.setAttribute("SameSite", "None");
         response.addCookie(deviceCookie);
 
         Cookie accessCookie = new Cookie("access_token", "");
@@ -485,7 +485,7 @@ public class ApiAuthController {
         accessCookie.setSecure(secureCookies);
         accessCookie.setPath("/");
         accessCookie.setMaxAge(0);
-        accessCookie.setAttribute("SameSite", "Lax");
+        accessCookie.setAttribute("SameSite", "None");
         response.addCookie(accessCookie);
 
         Cookie refreshCookie = new Cookie("refresh_token", "");
@@ -493,7 +493,7 @@ public class ApiAuthController {
         refreshCookie.setSecure(secureCookies);
         refreshCookie.setPath("/");
         refreshCookie.setMaxAge(0);
-        refreshCookie.setAttribute("SameSite", "Lax");
+        refreshCookie.setAttribute("SameSite", "None");
         response.addCookie(refreshCookie);
     }
 
