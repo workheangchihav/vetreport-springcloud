@@ -28,8 +28,9 @@ build/
 .vscode/
 
 ### Environment ###
-# Only ignore root .env file (centralized configuration)
-/.env
+# Ignore all .env files
+.env
+**/.env
 
 # Ignore all other .env files except examples
 **/.env.local
