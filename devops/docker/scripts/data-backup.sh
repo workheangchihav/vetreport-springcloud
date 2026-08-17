@@ -35,6 +35,7 @@ DATABASES=(
     "delivery_service_db"
     "marketing_service_db"
     "region_service_db"
+    "branchreport_service_db"
 )
 
 # Create backup directory
