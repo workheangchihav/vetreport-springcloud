@@ -54,6 +54,12 @@ public class UserController {
         return ResponseEntity.ok(updatedUser);
     }
 
+    @PutMapping("/{id}/password")
+    public ResponseEntity<Void> updatePassword(@PathVariable Long id, @RequestBody UpdatePasswordRequest request) {
+        userService.updatePassword(id, request.getNewPassword());
+        return ResponseEntity.ok().build();
+    }
+
     @PutMapping("/{id}/activate")
     public ResponseEntity<User> activateUser(@PathVariable Long id) {
         User user = userService.activateUser(id);
@@ -216,6 +222,18 @@ public class UserController {
 
         public void setServiceIds(List<Long> serviceIds) {
             this.serviceIds = serviceIds;
+        }
+    }
+
+    public static class UpdatePasswordRequest {
+        private String newPassword;
+
+        public String getNewPassword() {
+            return newPassword;
+        }
+
+        public void setNewPassword(String newPassword) {
+            this.newPassword = newPassword;
         }
     }
 

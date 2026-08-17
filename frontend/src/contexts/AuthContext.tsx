@@ -5,6 +5,7 @@ import React, {
   useContext,
   useEffect,
   useState,
+  useRef,
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -53,9 +54,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [permissionCache, setPermissionCache] = useState<
-    Record<string, boolean>
-  >({});
+  const permissionCache = useRef<Record<string, boolean>>({});
   const router = useRouter();
 
   const clearError = () => setError(null);
@@ -226,7 +225,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     const cacheKey = serviceContext ? `${serviceContext}:${permissionCode}` : permissionCode;
-    const cached = permissionCache[cacheKey];
+    const cached = permissionCache.current[cacheKey];
     if (cached !== undefined) {
       return cached;
     }
@@ -253,10 +252,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const result = await response.json();
       const hasPerm = !!result?.hasPermission;
 
-      setPermissionCache((prev) => ({
-        ...prev,
-        [cacheKey]: hasPerm,
-      }));
+      permissionCache.current[cacheKey] = hasPerm;
 
       return hasPerm;
     } catch (err) {
@@ -267,7 +263,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     // Clear cached permission results whenever the authenticated user changes
-    setPermissionCache({});
+    permissionCache.current = {};
   }, [user?.id]);
 
   useEffect(() => {

@@ -158,7 +158,7 @@ public class ApiAuthController {
                             .body(Map.of(
                                     "error", "Account is locked",
                                     "message", "Too many failed attempts. Try again later.",
-                                    "lockedUntil", user.getLockExpiresAt().toString()));
+                                    "lockedUntil", user.getLockExpiresAt() != null ? user.getLockExpiresAt().toString() : "Indefinitely"));
                 }
             }
         }

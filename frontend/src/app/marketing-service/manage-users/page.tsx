@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { userService, User, CreateUserRequest } from "@/services/userService";
 import { PermissionGuard } from "@/components/layout/PermissionGuard";
 import { useToast } from "@/components/ui/Toast";
@@ -50,6 +50,12 @@ const fetchAndCacheUserId = async (): Promise<number | null> => {
 };
 
 export default function ManageUserPage() {
+  const formRef = useRef<HTMLDivElement>(null);
+  
+  const scrollToForm = () => {
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   const { showToast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +90,10 @@ export default function ManageUserPage() {
   const [editSubAreaIds, setEditSubAreaIds] = useState<number[]>([]);
   const [editBranchIds, setEditBranchIds] = useState<number[]>([]);
   const [editingUserCurrentAssignment, setEditingUserCurrentAssignment] = useState<MarketingUserAssignment | null>(null);
+
+  // Reset password state
+  const [resettingUser, setResettingUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState("");
 
   const normalizedSearch = searchTerm.toLowerCase();
   const filteredUsers = users.filter((user) => {
@@ -378,25 +388,6 @@ export default function ManageUserPage() {
     }
   };
 
-  const handleToggleUserStatus = async (userId: number) => {
-    try {
-      // Use updateUser to toggle the active status
-      const user = users.find((u) => u.id === userId);
-      if (user) {
-        await userService.updateUser(userId, { active: !user.active });
-        setUsers((prev) =>
-          prev.map((u) => (u.id === userId ? { ...u, active: !u.active } : u)),
-        );
-        alert("User status updated successfully");
-      }
-    } catch (error) {
-      console.error("Error toggling user status:", error);
-      alert(
-        `Error updating user status: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-    }
-  };
-
   const loadHierarchy = async () => {
     try {
       const fetchedUserId = await fetchAndCacheUserId();
@@ -551,6 +542,7 @@ export default function ManageUserPage() {
   };
 
   const startEditUser = (user: User) => {
+    setResettingUser(null);
     setEditingUser(user);
     setEditFormData({
       fullName: user.fullName,
@@ -558,6 +550,7 @@ export default function ManageUserPage() {
       phone: user.phone || "",
     });
     loadUserAssignment(user.id);
+    setTimeout(scrollToForm, 100);
   };
 
   const cancelEdit = () => {
@@ -701,6 +694,32 @@ export default function ManageUserPage() {
     }
   };
 
+  const startResetPassword = (user: User) => {
+    setEditingUser(null);
+    setResettingUser(user);
+    setNewPassword("");
+    setTimeout(scrollToForm, 100);
+  };
+
+  const cancelResetPassword = () => {
+    setResettingUser(null);
+    setNewPassword("");
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resettingUser || !newPassword) return;
+
+    try {
+      await userService.updatePassword(resettingUser.id, newPassword);
+      showToast("Password updated successfully!", "success");
+      cancelResetPassword();
+    } catch (error) {
+      console.error("Error updating password:", error);
+      showToast(`Failed to update password: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -712,274 +731,362 @@ export default function ManageUserPage() {
         </p>
       </div>
 
-      {/* Create User Form */}
-      <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-        <h3 className="text-lg font-medium text-white mb-4">Create New User</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Left Column - All input fields in single column */}
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="fullName"
-                  className="block text-sm font-medium text-slate-300 mb-1"
-                >
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  id="fullName"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter full name"
-                />
-              </div>
+      {/* Unified User Management Form */}
+      <div ref={formRef} className="bg-slate-800 rounded-lg shadow-lg border border-slate-700 overflow-hidden mb-6 transition-all duration-300">
+        <div className={`px-6 py-4 border-b ${
+          editingUser ? 'bg-blue-900/30 border-blue-800/50' : 
+          resettingUser ? 'bg-yellow-900/30 border-yellow-800/50' : 
+          'bg-slate-900/50 border-slate-700'
+        } flex justify-between items-center`}>
+          <h3 className="text-lg font-medium text-white flex items-center">
+            {editingUser ? (
+              <>
+                <svg className="w-5 h-5 mr-2 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit User: {editingUser.fullName}
+              </>
+            ) : resettingUser ? (
+              <>
+                <svg className="w-5 h-5 mr-2 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                Reset Password: {resettingUser.fullName}
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5 mr-2 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                Create New User
+              </>
+            )}
+          </h3>
+          {(editingUser || resettingUser) && (
+            <button 
+              onClick={() => { cancelEdit(); cancelResetPassword(); }} 
+              className="text-slate-400 hover:text-white hover:bg-slate-700 rounded-full p-1.5 transition-colors"
+              title="Cancel"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
 
-              <div>
-                <label
-                  htmlFor="username"
-                  className="block text-sm font-medium text-slate-300 mb-1"
-                >
-                  Username
-                </label>
-                <input
-                  type="text"
-                  id="username"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter username"
-                />
-              </div>
+        <div className="p-6">
+          {!editingUser && !resettingUser && (
+            <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Left Column - All input fields in single column */}
+                <div className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="fullName"
+                      className="block text-sm font-medium text-slate-300 mb-1"
+                    >
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      id="fullName"
+                      name="fullName"
+                      value={formData.fullName}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder="Enter full name"
+                    />
+                  </div>
 
-              <div>
-                <label
-                  htmlFor="phone"
-                  className="block text-sm font-medium text-slate-300 mb-1"
-                >
-                  Phone (Optional)
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter phone number"
-                />
-              </div>
+                  <div>
+                    <label
+                      htmlFor="username"
+                      className="block text-sm font-medium text-slate-300 mb-1"
+                    >
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      id="username"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder="Enter username"
+                    />
+                  </div>
 
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-slate-300 mb-1"
-                >
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
-                    placeholder="Enter password"
+                  <div>
+                    <label
+                      htmlFor="phone"
+                      className="block text-sm font-medium text-slate-300 mb-1"
+                    >
+                      Phone (Optional)
+                    </label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="password"
+                      className="block text-sm font-medium text-slate-300 mb-1"
+                    >
+                      Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        id="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 transition-all"
+                        placeholder="Enter password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-white transition-colors"
+                      >
+                        {showPassword ? (
+                          <svg
+                            className="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                            />
+                          </svg>
+                        ) : (
+                          <svg
+                            className="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column - Hierarchy Dropdown */}
+                <div>
+                  <MultiSelectHierarchyDropdown
+                    areas={areas}
+                    subAreas={subAreas}
+                    branches={branches}
+                    currentUserAssignments={dropdownAssignments}
+                    selectedAreaIds={selectedAreaIds}
+                    selectedSubAreaIds={selectedSubAreaIds}
+                    selectedBranchIds={selectedBranchIds}
+                    onAreaChange={setSelectedAreaIds}
+                    onSubAreaChange={setSelectedSubAreaIds}
+                    onBranchChange={setSelectedBranchIds}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-white"
-                  >
-                    {showPassword ? (
-                      <svg
-                        className="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                    )}
-                  </button>
                 </div>
               </div>
-            </div>
 
-            {/* Right Column - Hierarchy Dropdown */}
-            <div>
-              <MultiSelectHierarchyDropdown
-                areas={areas}
-                subAreas={subAreas}
-                branches={branches}
-                currentUserAssignments={dropdownAssignments}
-                selectedAreaIds={selectedAreaIds}
-                selectedSubAreaIds={selectedSubAreaIds}
-                selectedBranchIds={selectedBranchIds}
-                onAreaChange={setSelectedAreaIds}
-                onSubAreaChange={setSelectedSubAreaIds}
-                onBranchChange={setSelectedBranchIds}
-              />
-            </div>
-          </div>
+              <div className="flex justify-end pt-2">
+                <PermissionGuard
+                  permission="user.create"
+                  serviceContext="marketing-service"
+                  fallback={
+                    <button
+                      type="button"
+                      disabled
+                      className="px-6 py-2 bg-slate-700 text-slate-400 rounded-md cursor-not-allowed"
+                      title="You don't have permission to create users"
+                    >
+                      Create User (No Permission)
+                    </button>
+                  }
+                >
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center"
+                  >
+                    {isSubmitting ? (
+                      <><span className="animate-spin inline-block mr-2 border-2 border-white/30 border-t-white rounded-full w-4 h-4"></span> Creating...</>
+                    ) : "Create User"}
+                  </button>
+                </PermissionGuard>
+              </div>
+            </form>
+          )}
 
-          <div className="flex justify-end">
-            <PermissionGuard
-              permission="user.create"
-              serviceContext="marketing-service"
-              fallback={
+          {editingUser && (
+            <form onSubmit={handleUpdateUser} className="space-y-4 animate-in fade-in duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="editFullName"
+                      className="block text-sm font-medium text-slate-300 mb-1"
+                    >
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      id="editFullName"
+                      name="fullName"
+                      value={editFormData.fullName}
+                      onChange={handleEditInputChange}
+                      required
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder="Enter full name"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="editUsername"
+                      className="block text-sm font-medium text-slate-300 mb-1"
+                    >
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      id="editUsername"
+                      name="username"
+                      value={editFormData.username}
+                      disabled
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-600/50 rounded-md text-slate-500 placeholder-slate-600 cursor-not-allowed"
+                      placeholder="Username cannot be changed"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Username cannot be changed
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="editPhone"
+                      className="block text-sm font-medium text-slate-300 mb-1"
+                    >
+                      Phone (Optional)
+                    </label>
+                    <input
+                      type="tel"
+                      id="editPhone"
+                      name="phone"
+                      value={editFormData.phone}
+                      onChange={handleEditInputChange}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <MultiSelectHierarchyDropdown
+                    areas={areas}
+                    subAreas={subAreas}
+                    branches={branches}
+                    currentUserAssignments={dropdownAssignments}
+                    selectedAreaIds={editAreaIds}
+                    selectedSubAreaIds={editSubAreaIds}
+                    selectedBranchIds={editBranchIds}
+                    onAreaChange={setEditAreaIds}
+                    onSubAreaChange={setEditSubAreaIds}
+                    onBranchChange={setEditBranchIds}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-2">
                 <button
                   type="button"
-                  disabled
-                  className="px-6 py-2 bg-gray-600 text-gray-400 rounded-md cursor-not-allowed"
-                  title="You don't have permission to create users"
+                  onClick={cancelEdit}
+                  className="px-6 py-2 bg-slate-700 text-slate-300 rounded-md hover:bg-slate-600 hover:text-white transition-colors"
                 >
-                  Create User (No Permission)
+                  Cancel
                 </button>
-              }
-            >
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? "Creating..." : "Create User"}
-              </button>
-            </PermissionGuard>
-          </div>
-        </form>
-      </div>
-
-      {/* Edit User Form */}
-      {editingUser && (
-        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <h3 className="text-lg font-medium text-white mb-4">Edit User</h3>
-          <form onSubmit={handleUpdateUser} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="editFullName"
-                  className="block text-sm font-medium text-slate-300 mb-1"
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center"
                 >
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  id="editFullName"
-                  name="fullName"
-                  value={editFormData.fullName}
-                  onChange={handleEditInputChange}
-                  required
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter full name"
-                />
+                  {isSubmitting ? (
+                    <><span className="animate-spin inline-block mr-2 border-2 border-white/30 border-t-white rounded-full w-4 h-4"></span> Updating...</>
+                  ) : "Update User"}
+                </button>
               </div>
+            </form>
+          )}
 
-              <div>
-                <label
-                  htmlFor="editUsername"
-                  className="block text-sm font-medium text-slate-300 mb-1"
+          {resettingUser && (
+            <form onSubmit={handleResetPassword} className="space-y-4 animate-in fade-in duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label
+                    htmlFor="newPassword"
+                    className="block text-sm font-medium text-slate-300 mb-1"
+                  >
+                    New Password
+                  </label>
+                  <input
+                    type="text"
+                    id="newPassword"
+                    name="newPassword"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
+                    placeholder="Enter new password"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={cancelResetPassword}
+                  className="px-6 py-2 bg-slate-700 text-slate-300 rounded-md hover:bg-slate-600 hover:text-white transition-colors"
                 >
-                  Username
-                </label>
-                <input
-                  type="text"
-                  id="editUsername"
-                  name="username"
-                  value={editFormData.username}
-                  disabled
-                  className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-md text-slate-400 placeholder-slate-500 cursor-not-allowed"
-                  placeholder="Username cannot be changed"
-                />
-                <p className="text-xs text-slate-400 mt-1">
-                  Username cannot be changed
-                </p>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="editPhone"
-                  className="block text-sm font-medium text-slate-300 mb-1"
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-slate-900 transition-colors shadow-sm"
                 >
-                  Phone (Optional)
-                </label>
-                <input
-                  type="tel"
-                  id="editPhone"
-                  name="phone"
-                  value={editFormData.phone}
-                  onChange={handleEditInputChange}
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter phone number"
-                />
+                  Confirm Reset
+                </button>
               </div>
-
-
-              <MultiSelectHierarchyDropdown
-                areas={areas}
-                subAreas={subAreas}
-                branches={branches}
-                currentUserAssignments={dropdownAssignments}
-                selectedAreaIds={editAreaIds}
-                selectedSubAreaIds={editSubAreaIds}
-                selectedBranchIds={editBranchIds}
-                onAreaChange={setEditAreaIds}
-                onSubAreaChange={setEditSubAreaIds}
-                onBranchChange={setEditBranchIds}
-              />
-            </div>
-
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={cancelEdit}
-                className="px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-500 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? "Updating..." : "Update User"}
-              </button>
-            </div>
-          </form>
+            </form>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Search and User List */}
       <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
@@ -1140,6 +1247,26 @@ export default function ManageUserPage() {
                               <button
                                 disabled
                                 className="px-3 py-1 bg-gray-100 text-gray-400 rounded text-xs font-medium cursor-not-allowed"
+                                title="You don't have permission to reset passwords"
+                              >
+                                Reset Pwd
+                              </button>
+                            }
+                          >
+                            <button
+                              onClick={() => startResetPassword(user)}
+                              className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-medium hover:bg-yellow-200 transition-colors"
+                            >
+                              Reset Pwd
+                            </button>
+                          </PermissionGuard>
+                          <PermissionGuard
+                            permission="user.edit"
+                            serviceContext="marketing-service"
+                            fallback={
+                              <button
+                                disabled
+                                className="px-3 py-1 bg-gray-100 text-gray-400 rounded text-xs font-medium cursor-not-allowed"
                                 title="You don't have permission to change user status"
                               >
                                 {user.active ? "Deactivate" : "Activate"}
@@ -1147,7 +1274,7 @@ export default function ManageUserPage() {
                             }
                           >
                             <button
-                              onClick={() => handleToggleUserStatus(user.id)}
+                              onClick={() => toggleUserStatus(user.id)}
                               className={`px-3 py-1 rounded text-xs font-medium transition-colors ${user.active
                                 ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
                                 : "bg-green-100 text-green-800 hover:bg-green-200"

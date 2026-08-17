@@ -197,10 +197,16 @@ public class RoleController extends BaseController {
         return ResponseEntity.noContent().build();
     }
 
+    public static class UserRoleRequest {
+        private List<Long> userIds;
+        public List<Long> getUserIds() { return userIds; }
+        public void setUserIds(List<Long> userIds) { this.userIds = userIds; }
+    }
+
     @PostMapping("/{roleId}/assign-users")
     public ResponseEntity<Void> assignUsersToRole(
             @PathVariable Long roleId,
-            @RequestBody Map<String, List<Long>> request,
+            @RequestBody UserRoleRequest request,
             HttpServletRequest httpRequest) {
 
         ResponseEntity<Void> permissionCheck = checkPermissionAndReturn(httpRequest, "menu.5.assign");
@@ -208,7 +214,7 @@ public class RoleController extends BaseController {
             return permissionCheck;
         }
 
-        List<Long> userIds = request.get("userIds");
+        List<Long> userIds = request.getUserIds();
         if (userIds == null || userIds.isEmpty()) {
             throw new IllegalArgumentException("User IDs are required");
         }
@@ -253,10 +259,10 @@ public class RoleController extends BaseController {
 
     @PostMapping("/{roleId}/remove-users")
     public ResponseEntity<Void> removeUsersFromRole(@PathVariable Long roleId,
-            @RequestBody Map<String, List<Long>> request) {
+            @RequestBody UserRoleRequest request) {
         logger.info("Removing users from role: {}", roleId);
 
-        List<Long> userIds = request.get("userIds");
+        List<Long> userIds = request.getUserIds();
         if (userIds == null || userIds.isEmpty()) {
             throw new IllegalArgumentException("User IDs are required");
         }

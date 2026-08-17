@@ -240,6 +240,27 @@ class UserService {
     }
   }
 
+  async updatePassword(id: number, newPassword: string): Promise<void> {
+    try {
+      const response = await apiFetch(`/api/users/${id}/password`, {
+        method: "PUT",
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ newPassword }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const errorData = this.safeJsonParse(errorText);
+        throw new Error(
+          errorData?.message || `HTTP error! status: ${response.status}`,
+        );
+      }
+    } catch (error) {
+      console.error("Error updating password:", error);
+      throw error;
+    }
+  }
+
   async deleteUser(id: number): Promise<void> {
     try {
       const response = await apiFetch(`/api/users/${id}`, {

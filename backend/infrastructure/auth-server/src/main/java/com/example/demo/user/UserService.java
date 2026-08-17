@@ -255,6 +255,18 @@ public class UserService implements UserDetailsService {
         return userRepository.save(user);
     }
 
+    @Transactional
+    public void updatePassword(Long userId, String newRawPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
+        user.setPassword(passwordEncoder.encode(newRawPassword));
+        user.setPasswordChangedAt(java.time.Instant.now());
+        user.setAccountLocked(false);
+        user.setLockExpiresAt(null);
+        user.setFailedLoginAttempts(0);
+        selfProvider.getObject().save(user);
+    }
+
     public com.example.demo.user.User getUserByUsername(String username) {
         return userRepository.findByUsername(username).orElse(null);
     }
