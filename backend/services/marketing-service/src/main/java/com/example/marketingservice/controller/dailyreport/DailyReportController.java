@@ -5,6 +5,8 @@ import com.example.marketingservice.dto.dailyreport.DailyReportDto;
 import com.example.marketingservice.dto.dailyreport.DailyReportDto.DailyReportItemDto;
 import com.example.marketingservice.service.dailyreport.DailyReportService;
 
+import org.springframework.data.domain.Page;
+
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,19 @@ public class DailyReportController extends BaseController {
     public ResponseEntity<List<DailyReportDto>> getAllReports(HttpServletRequest request) {
         checkPermission(request, "menu.marketing.reports.view");
         List<DailyReportDto> reports = dailyReportService.getAllReports();
+        return ResponseEntity.ok(reports);
+    }
+
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<DailyReportDto>> getPaginatedReports(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String createdBy,
+            HttpServletRequest request) {
+        checkPermission(request, "menu.marketing.reports.view");
+        Page<DailyReportDto> reports = dailyReportService.getPaginatedReports(page, size, startDate, endDate, createdBy);
         return ResponseEntity.ok(reports);
     }
 

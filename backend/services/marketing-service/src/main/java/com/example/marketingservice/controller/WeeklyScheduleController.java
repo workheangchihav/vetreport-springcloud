@@ -6,6 +6,7 @@ import com.example.marketingservice.dto.schedule.WeeklyScheduleResponse;
 import com.example.marketingservice.service.schedule.WeeklyScheduleService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -66,6 +67,17 @@ public class WeeklyScheduleController extends BaseController {
             @RequestParam Integer month,
             @RequestParam(required = false) Long userId) {
         List<WeeklyScheduleResponse> schedules = weeklyScheduleService.getAllSchedules(year, month, userId);
+        return ResponseEntity.ok(schedules);
+    }
+
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<WeeklyScheduleResponse>> getPaginatedSchedules(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam Integer year,
+            @RequestParam Integer month,
+            @RequestParam(required = false) Long userId) {
+        Page<WeeklyScheduleResponse> schedules = weeklyScheduleService.getPaginatedSchedules(page, size, year, month, userId);
         return ResponseEntity.ok(schedules);
     }
 

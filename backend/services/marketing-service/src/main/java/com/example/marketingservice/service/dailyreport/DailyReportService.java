@@ -6,6 +6,10 @@ import com.example.marketingservice.entity.dailyreport.DailyReport;
 import com.example.marketingservice.entity.dailyreport.DailyReportItem;
 import com.example.marketingservice.repository.dailyreport.DailyReportRepository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -34,6 +38,22 @@ public class DailyReportService {
 
     private Map<String, String> userFullNameCache = new java.util.concurrent.ConcurrentHashMap<>();
     private Map<String, String> userPhoneCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public Page<DailyReportDto> getPaginatedReports(int page, int size, String startDate, String endDate, String createdBy) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "reportDate", "createdAt"));
+        Page<DailyReport> reportPage = dailyReportRepository.findByFilters(startDate, endDate, createdBy, pageable);
+        
+        return reportPage.map(report -> {
+            Integer userId = null;
+            try {
+                String url = userServiceUrl + "/api/users/username/" + report.getCreatedBy() + "/id";
+                userId = restTemplate.getForObject(url, Integer.class);
+            } catch (Exception e) {
+                System.err.println("Error fetching user ID for " + report.getCreatedBy() + ": " + e.getMessage());
+            }
+            return convertToDto(report, userId);
+        });
+    }
 
     public List<DailyReportDto> getAllReports() {
         List<DailyReport> reports = dailyReportRepository.findAllByOrderByCreatedAtDesc();

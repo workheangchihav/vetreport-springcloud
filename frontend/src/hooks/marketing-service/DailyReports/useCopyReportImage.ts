@@ -35,7 +35,7 @@ export const useCopyReportImage = (
             tempContainer.style.background = '#ffffff';
             tempContainer.style.padding = PADDING + 'px';
             tempContainer.style.boxSizing = 'border-box';
-            tempContainer.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            tempContainer.style.fontFamily = '"Hanuman", var(--font-hanuman), -apple-system, sans-serif';
 
             // Clone the report content
             const clonedContent = reportRef.current.cloneNode(true) as HTMLElement;

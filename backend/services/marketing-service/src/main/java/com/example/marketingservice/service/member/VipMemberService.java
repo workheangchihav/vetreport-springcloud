@@ -180,7 +180,7 @@ public class VipMemberService {
     @Transactional
     public VipMember update(Long id, VipMemberRequest request, Long userId) {
         VipMember member = getById(id);
-        authorizationService.validateCreator(userId, member.getCreatedBy(), "VIP member");
+        validateManagePermission(userId, member);
         applyRequest(member, request);
         return vipMemberRepository.save(member);
     }
@@ -188,8 +188,29 @@ public class VipMemberService {
     @Transactional
     public void delete(Long id, Long userId) {
         VipMember member = getById(id);
-        authorizationService.validateCreator(userId, member.getCreatedBy(), "VIP member");
+        validateManagePermission(userId, member);
         vipMemberRepository.deleteById(id);
+    }
+
+    private void validateManagePermission(Long userId, VipMember member) {
+        if (authorizationService.isRootUser(userId)) {
+            return;
+        }
+
+        if (authorizationService.isCreator(userId, member.getCreatedBy())) {
+            return;
+        }
+
+        if (member.getBranch() != null) {
+            Long areaId = member.getBranch().getArea() != null ? member.getBranch().getArea().getId() : null;
+            if (authorizationService.canCreateBranch(userId, areaId, member.getBranch().getId())) {
+                return;
+            }
+        }
+
+        throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.FORBIDDEN,
+                "You don't have permission to modify this VIP member. Only the creator or branch members can manage it.");
     }
 
     private void applyRequest(VipMember member, VipMemberRequest request) {

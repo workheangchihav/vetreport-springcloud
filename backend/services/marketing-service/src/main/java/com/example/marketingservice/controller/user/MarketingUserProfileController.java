@@ -20,12 +20,7 @@ public class MarketingUserProfileController {
 
     @GetMapping("/{userId}")
     public ResponseEntity<MarketingUserProfileResponse> getUserProfile(@PathVariable Long userId) {
-        // Users can only view their own profile unless they are admin
-        Long currentUserId = authorizationService.getCurrentUserId();
-        if (!currentUserId.equals(userId) && !authorizationService.canManageUsers()) {
-            return ResponseEntity.status(403).build();
-        }
-
+        // Any authenticated user can view a profile (needed for displaying signatures on shared reports)
         MarketingUserProfileResponse profile = profileService.getProfileByUserId(userId);
         if (profile == null) {
             return ResponseEntity.notFound().build();

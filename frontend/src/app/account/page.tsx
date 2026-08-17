@@ -6,6 +6,7 @@ import { usePreferences } from "@/contexts/PreferencesContext";
 import { useToast } from "@/components/ui/Toast";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/i18n/messages";
 import { marketingUserProfileService, type MarketingUserProfile, type MarketingUserProfileRequest } from "@/services/marketing-service/marketingUserProfileService";
+import { userService } from "@/services/userService";
 
 const AVATAR_FALLBACK_TEXT = "LS";
 
@@ -25,6 +26,12 @@ export default function AccountPage() {
   });
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+
+  // Password change state
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   const canAccessMarketing = hasServiceAccess("marketing");
 
@@ -99,6 +106,32 @@ export default function AccountPage() {
     }
   };
 
+  const handlePasswordChange = async () => {
+    if (!user?.id) return;
+    if (newPassword.length < 6) {
+      showToast('Password must be at least 6 characters', 'error');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showToast('Passwords do not match', 'error');
+      return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      await userService.updatePassword(user.id, newPassword);
+      showToast('Password updated successfully', 'success');
+      setIsChangingPassword(false);
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.error("Failed to update password:", error);
+      showToast('Failed to update password', 'error');
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
   const displayName = user?.fullName ?? user?.username ?? "Operator";
   const derivedEmail = user
     ? `${user.username}@lucky-system.io`
@@ -159,13 +192,62 @@ export default function AccountPage() {
             />
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
-            <button className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-amber-200/80 transition hover:border-orange-400/60 hover:bg-orange-400/10">
+            <button 
+              onClick={() => setIsChangingPassword(!isChangingPassword)}
+              className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] transition ${isChangingPassword ? "bg-orange-400/20 text-amber-200 border-orange-400/60" : "border-white/10 text-amber-200/80 hover:border-orange-400/60 hover:bg-orange-400/10"}`}
+            >
               Change password
             </button>
             <button className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-amber-200/80 transition hover:border-orange-400/60 hover:bg-orange-400/10">
               Two-factor auth
             </button>
           </div>
+          {isChangingPassword && (
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <h3 className="text-sm font-semibold text-white mb-4">Change Password</h3>
+              <div className="space-y-4">
+                <div className="flex flex-col">
+                  <label className="text-[0.6rem] uppercase tracking-[0.25em] text-slate-400 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-orange-400/60 focus:outline-none"
+                    placeholder="Enter new password"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[0.6rem] uppercase tracking-[0.25em] text-slate-400 mb-1">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-orange-400/60 focus:outline-none"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setIsChangingPassword(false);
+                      setNewPassword("");
+                      setConfirmPassword("");
+                    }}
+                    className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handlePasswordChange}
+                    disabled={isSavingPassword || !newPassword || !confirmPassword}
+                    className="rounded-full bg-orange-500 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSavingPassword ? "Saving..." : "Save Password"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

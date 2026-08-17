@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState, useRef } from "react";
 import { MarketingServiceGuard } from "@/components/marketing-service/MarketingServiceGuard";
 import { PermissionGuard } from "@/components/layout/PermissionGuard";
 import { useToast } from "@/components/ui/Toast";
@@ -52,6 +52,7 @@ const defaultForm: MemberFormState = {
 };
 
 export default function MarketingVipManageUserPage() {
+  const formRef = useRef<HTMLFormElement>(null);
   const { showToast } = useToast();
   const { user, isAuthenticated, isLoading, hasServiceAccess } = useAuth();
   const canAccessMarketing = isAuthenticated && hasServiceAccess("marketing");
@@ -377,8 +378,34 @@ export default function MarketingVipManageUserPage() {
   const canEditMember = (member: VipMember) => {
     // Root user can edit all
     if (user?.username === "root") return true;
+    
     // User can edit if they created the member
-    return member.createdBy === user?.id;
+    if (member.createdBy === user?.id) return true;
+
+    // User can edit if they are assigned to the member's branch (or its parent area/sub-area)
+    if (member.branchId) {
+      const memberBranch = branches.find((b) => b.id === member.branchId);
+      const memberSubAreaId = member.subAreaId ?? memberBranch?.subAreaId;
+      const memberAreaId = member.areaId ?? memberBranch?.areaId;
+
+      return userAssignments.some((assignment) => {
+        // If assigned directly to this branch
+        if (assignment.branchId && assignment.branchId === member.branchId) {
+          return true;
+        }
+        // If assigned to the sub-area containing this branch
+        if (assignment.subAreaId && !assignment.branchId && assignment.subAreaId === memberSubAreaId) {
+          return true;
+        }
+        // If assigned to the area containing this branch
+        if (assignment.areaId && !assignment.subAreaId && !assignment.branchId && assignment.areaId === memberAreaId) {
+          return true;
+        }
+        return false;
+      });
+    }
+
+    return false;
   };
 
   useEffect(() => {
@@ -601,7 +628,9 @@ export default function MarketingVipManageUserPage() {
       deleteRemark: member.deleteRemark ?? "",
     });
     setEditingMember(member);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   };
 
   const handleDelete = async (member: VipMember) => {
@@ -674,7 +703,7 @@ export default function MarketingVipManageUserPage() {
         </section>
 
         <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form ref={formRef} className="space-y-4" onSubmit={handleSubmit}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-amber-300/70">

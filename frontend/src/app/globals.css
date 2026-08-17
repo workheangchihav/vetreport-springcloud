@@ -12,6 +12,10 @@
   font-family: "Khmer OS Muol", "Noto Sans Khmer", sans-serif;
 }
 
+.font-hanuman {
+  font-family: var(--font-hanuman), "Hanuman", sans-serif;
+}
+
 html,
 body {
   height: 100%;

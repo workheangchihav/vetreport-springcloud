@@ -1,5 +1,7 @@
 package com.example.marketingservice.repository.dailyreport;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -33,4 +35,14 @@ public interface DailyReportRepository extends JpaRepository<DailyReport, Long> 
     long countByReportDate(@Param("reportDate") String reportDate);
 
     List<DailyReport> findAllByOrderByCreatedAtDesc();
+
+    @Query("SELECT dr FROM DailyReport dr WHERE " +
+           "(:startDate IS NULL OR dr.reportDate >= :startDate) AND " +
+           "(:endDate IS NULL OR dr.reportDate <= :endDate) AND " +
+           "(:createdBy IS NULL OR dr.createdBy = :createdBy)")
+    Page<DailyReport> findByFilters(
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate,
+            @Param("createdBy") String createdBy,
+            Pageable pageable);
 }

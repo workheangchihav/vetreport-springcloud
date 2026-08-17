@@ -127,7 +127,7 @@ export const ReportFormModal = ({ editingReport, onSave, onClose, loading }: Rep
     `;
 
     return createPortal(
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 bg-black/70 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 bg-black/70 backdrop-blur-md font-hanuman">
             <style>{scrollbarStyles}</style>
             <div className="mx-4 max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-white/20 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-8 shadow-2xl custom-scrollbar">
                 <div className="flex items-center justify-between mb-8">

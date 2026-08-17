@@ -1,4 +1,5 @@
 import { apiFetch } from "@/services/httpClient";
+import { PaginatedResponse } from "@/types/types";
 
 export interface WeeklyScheduleDayRequest {
   dayNumber: number;
@@ -106,6 +107,19 @@ export const weeklyScheduleService = {
   // Get all schedules (with optional user filter)
   getAllSchedules: async (year: number, month: number, userId?: number): Promise<WeeklyScheduleResponse[]> => {
     let url = `/api/marketing/weekly-schedules?year=${year}&month=${month}`;
+    if (userId) {
+      url += `&userId=${userId}`;
+    }
+    const response = await apiFetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  },
+
+  // Get paginated schedules
+  getPaginatedSchedules: async (page: number, size: number, year: number, month: number, userId?: number): Promise<PaginatedResponse<WeeklyScheduleResponse>> => {
+    let url = `/api/marketing/weekly-schedules/paginated?page=${page}&size=${size}&year=${year}&month=${month}`;
     if (userId) {
       url += `&userId=${userId}`;
     }

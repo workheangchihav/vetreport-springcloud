@@ -11,6 +11,9 @@ import com.example.marketingservice.repository.schedule.WeeklyScheduleDayReposit
 import com.example.marketingservice.repository.schedule.WeeklyScheduleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -185,6 +188,13 @@ public class WeeklyScheduleService {
         return schedules.stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<WeeklyScheduleResponse> getPaginatedSchedules(int page, int size, Integer year, Integer month, Long userId) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<WeeklySchedule> schedulePage = weeklyScheduleRepository.findPaginatedByFilters(year, month, userId, pageable);
+        return schedulePage.map(this::convertToResponse);
     }
 
     @Transactional(readOnly = true)

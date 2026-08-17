@@ -490,7 +490,10 @@ export default function CompetitorsDashboardPage() {
                     backgroundColor: "#0f172a",
                     borderRadius: 12,
                     border: "1px solid rgba(255,255,255,0.1)",
+                    color: "white",
                   }}
+                  itemStyle={{ color: "white" }}
+                  labelStyle={{ color: "white" }}
                   formatter={(value: number) => [value, "total branch"]}
                 />
                 <Bar dataKey="total" barSize={70} radius={[12, 12, 0, 0]}>
@@ -796,7 +799,10 @@ export default function CompetitorsDashboardPage() {
                     backgroundColor: "#0f172a",
                     borderRadius: 12,
                     border: "1px solid rgba(255,255,255,0.1)",
+                    color: "white",
                   }}
+                  itemStyle={{ color: "white" }}
+                  labelStyle={{ color: "white" }}
                   formatter={(value: number) => [value, "total branch"]}
                 />
                 <Bar dataKey="total" barSize={70} radius={[12, 12, 0, 0]}>

@@ -176,6 +176,7 @@ export const ReportViewModal = ({ report, onClose }: ReportViewModalProps) => {
                             background: #ffffff;
                             display: flex;
                             justify-content: center;
+                            font-family: "Hanuman", var(--font-hanuman), -apple-system, sans-serif !important;
                         }
                         * {
                             -webkit-print-color-adjust: exact !important;
@@ -213,7 +214,7 @@ export const ReportViewModal = ({ report, onClose }: ReportViewModalProps) => {
 
     return createPortal(
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 font-hanuman"
             onClick={onClose}
         >
             <div

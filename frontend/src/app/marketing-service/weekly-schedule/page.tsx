@@ -407,6 +407,11 @@ export default function MonthlySchedulePage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [focusedRow, setFocusedRow] = useState<string | null>(null);
   const [submittedSchedules, setSubmittedSchedules] = useState<SubmittedSchedule[]>([]);
+  const [page, setPage] = useState(0);
+  const [size] = useState(20);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
   const [showSubmittedTable, setShowSubmittedTable] = useState(false);
   const [showSubmittedDetailsModal, setShowSubmittedDetailsModal] = useState(false);
   const [selectedSubmittedSchedule, setSelectedSubmittedSchedule] = useState<SubmittedSchedule | null>(null);
@@ -586,12 +591,12 @@ export default function MonthlySchedulePage() {
     return expandedRows.has(uniqueKey) && focusedRow === uniqueKey;
   };
 
-  // Auto-generate schedule when year/month changes
+  // Auto-generate schedule when year/month/page changes
   useEffect(() => {
     if (year && month) {
       loadScheduleFromBackend();
     }
-  }, [year, month]);
+  }, [year, month, page, selectedUserFilter]);
 
   const loadScheduleFromBackend = async () => {
     try {
@@ -621,8 +626,18 @@ export default function MonthlySchedulePage() {
         setUserInfo(prev => ({ ...prev, week: weeks[0].weekNumber }));
       }
 
-      // Load existing schedules for this month
-      const existingSchedules = await weeklyScheduleService.getAllSchedules(year, month);
+      // Load existing schedules for this month using pagination
+      const paginatedSchedules = await weeklyScheduleService.getPaginatedSchedules(
+        page, 
+        size, 
+        year, 
+        month,
+        selectedUserFilter !== 'all' ? parseInt(selectedUserFilter) : undefined
+      );
+      const existingSchedules = paginatedSchedules.content || [];
+      setTotalElements(paginatedSchedules.totalElements || 0);
+      setTotalPages(paginatedSchedules.totalPages || 0);
+
       const submittedSchedulesData = existingSchedules.map(schedule => ({
         id: schedule.id,
         userInfo: {
@@ -1048,7 +1063,8 @@ export default function MonthlySchedulePage() {
 
   return (
     <MarketingServiceGuard>
-      <div className="space-y-8">
+      <div className="font-hanuman">
+        <div className="space-y-8">
         <header className="space-y-2">
           <p className="text-xs uppercase tracking-[0.4em] text-amber-300/70">
             Marketing · Schedule
@@ -1440,6 +1456,31 @@ export default function MonthlySchedulePage() {
                 </div>
               ))}
             </div>
+
+            {/* Pagination Controls */}
+            {!loading && totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-white/10 pt-6 mt-6">
+                <div className="text-xs text-slate-400">
+                  Showing page {page + 1} of {totalPages} ({totalElements} total records)
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage(Math.max(0, page - 1))}
+                    disabled={page === 0}
+                    className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
+                    disabled={page >= totalPages - 1}
+                    className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1447,7 +1488,7 @@ export default function MonthlySchedulePage() {
       {/* SUBMITTED SCHEDULE DETAILS MODAL */}
       {showSubmittedDetailsModal && selectedSubmittedSchedule && portalRoot && createPortal(
         <div
-          className="fixed inset-0 z-50 bg-white flex flex-col"
+          className="fixed inset-0 z-50 bg-white flex flex-col font-hanuman"
           onClick={() => setShowSubmittedDetailsModal(false)}
         >
           {/* Action Buttons - Top Right */}
@@ -1642,8 +1683,7 @@ export default function MonthlySchedulePage() {
                           />
                         </div>
                       ) : (
-                        <div className="h-20 flex items-center justify-center text-gray-400 text-xs">
-                          {selectedSubmittedSchedule?.userProfile ? 'No signature in profile' : 'Profile not accessible'}
+                        <div className="h-20 flex items-center justify-center">
                         </div>
                       )}
                       <div className="border-t border-gray-300 pt-2 flex justify-center max-w-20 mx-auto">
@@ -1669,7 +1709,7 @@ export default function MonthlySchedulePage() {
       {
         showEditModal && editingSchedule && portalRoot && createPortal(
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 font-hanuman"
             onClick={() => setShowEditModal(false)}
           >
             <div className="bg-slate-900 rounded-2xl border border-slate-700 p-8 max-w-[80vw] w-full mx-4 max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -1775,6 +1815,7 @@ export default function MonthlySchedulePage() {
           portalRoot
         )
       }
+      </div>
     </MarketingServiceGuard >
   );
 }

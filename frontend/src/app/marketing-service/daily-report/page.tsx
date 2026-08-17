@@ -12,14 +12,25 @@ import { DailyReport } from "@/types/types";
 
 const DailyReportPage = () => {
     const { showToast } = useToast();
+    const [page, setPage] = useState(0);
+    const [dateFilter, setDateFilter] = useState("");
+    const [size] = useState(20);
+
     const {
         reports,
+        totalElements,
+        totalPages,
         loading,
         loadReports,
         createReport,
         updateReport,
         deleteReport
-    } = useDailyReports();
+    } = useDailyReports({
+        page,
+        size,
+        startDate: dateFilter || undefined,
+        endDate: dateFilter || undefined
+    });
 
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [editingReport, setEditingReport] = useState<DailyReport | null>(null);
@@ -75,8 +86,9 @@ const DailyReportPage = () => {
 
     return (
         <MarketingServiceGuard>
-            <div className="space-y-8">
-                <header className="space-y-2">
+            <div className="font-hanuman">
+                <div className="space-y-8">
+                    <header className="space-y-2">
                     <p className="text-xs uppercase tracking-[0.4em] text-amber-300/70">
                         Marketing · Reports
                     </p>
@@ -89,7 +101,28 @@ const DailyReportPage = () => {
                 </header>
 
                 <div className="flex justify-between items-center">
-                    <div></div>
+                    <div className="flex items-center gap-4">
+                        <input
+                            type="date"
+                            value={dateFilter}
+                            onChange={(e) => {
+                                setDateFilter(e.target.value);
+                                setPage(0); // Reset to first page on filter change
+                            }}
+                            className="rounded-xl border border-white/10 bg-slate-900/60 px-4 py-2 text-sm text-white focus:border-amber-400/60 focus:outline-none"
+                        />
+                        {dateFilter && (
+                            <button 
+                                onClick={() => {
+                                    setDateFilter("");
+                                    setPage(0);
+                                }}
+                                className="text-xs text-slate-400 hover:text-white"
+                            >
+                                Clear
+                            </button>
+                        )}
+                    </div>
                     <button
                         className="rounded-2xl bg-gradient-to-r from-amber-500/90 to-orange-500/90 px-6 py-2 text-sm font-semibold text-white hover:from-amber-400 hover:to-orange-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                         onClick={() => {
@@ -110,6 +143,30 @@ const DailyReportPage = () => {
                     onView={setViewingReport}
                 />
 
+                {!loading && totalPages > 1 && (
+                    <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                        <div className="text-xs text-slate-400">
+                            Showing page {page + 1} of {totalPages} ({totalElements} total records)
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setPage(Math.max(0, page - 1))}
+                                disabled={page === 0}
+                                className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                            >
+                                Previous
+                            </button>
+                            <button
+                                onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
+                                disabled={page >= totalPages - 1}
+                                className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {showCreateForm && (
                     <ReportFormModal
                         editingReport={editingReport}
@@ -128,6 +185,7 @@ const DailyReportPage = () => {
                         onClose={() => setViewingReport(null)}
                     />
                 )}
+            </div>
             </div>
         </MarketingServiceGuard>
     );

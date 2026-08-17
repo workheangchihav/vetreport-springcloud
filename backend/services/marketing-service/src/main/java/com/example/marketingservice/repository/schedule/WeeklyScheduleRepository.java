@@ -1,6 +1,8 @@
 package com.example.marketingservice.repository.schedule;
 
 import com.example.marketingservice.entity.schedule.WeeklySchedule;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -28,6 +30,14 @@ public interface WeeklyScheduleRepository extends JpaRepository<WeeklySchedule, 
     List<WeeklySchedule> findByFilters(@Param("year") Integer year,
             @Param("month") Integer month,
             @Param("userId") Long userId);
+
+    @Query("SELECT ws FROM WeeklySchedule ws WHERE ws.year = :year AND ws.month = :month " +
+            "AND (:userId IS NULL OR ws.userId = :userId) " +
+            "ORDER BY ws.userId, ws.weekNumber")
+    Page<WeeklySchedule> findPaginatedByFilters(@Param("year") Integer year,
+            @Param("month") Integer month,
+            @Param("userId") Long userId,
+            Pageable pageable);
 
     @Query("SELECT COUNT(ws) FROM WeeklySchedule ws WHERE ws.userId = :userId AND ws.year = :year AND ws.month = :month")
     Long countByUserAndMonth(@Param("userId") Long userId, @Param("year") Integer year, @Param("month") Integer month);
